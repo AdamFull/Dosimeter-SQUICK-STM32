@@ -36,10 +36,13 @@
 /* Includes ------------------------------------------------------------------*/
 #include <string.h>
 #include "ff_gen_drv.h"
+#include "w25qxx.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
-
+#define FLASH_SECTOR_SIZE   512
+#define FLASH_SECTOR_COUNT  1024*25*4
+#define FLASH_BLOCK_SIZE    8
 /* Private variables ---------------------------------------------------------*/
 /* Disk status */
 static volatile DSTATUS Stat = STA_NOINIT;
@@ -82,7 +85,10 @@ DSTATUS USER_initialize (
 )
 {
   /* USER CODE BEGIN INIT */
-    Stat = STA_NOINIT;
+	if(W25qxx_Init())
+		Stat = RES_OK;
+	else
+		Stat = STA_NOINIT;
     return Stat;
   /* USER CODE END INIT */
 }
@@ -97,7 +103,7 @@ DSTATUS USER_status (
 )
 {
   /* USER CODE BEGIN STATUS */
-    Stat = STA_NOINIT;
+    Stat = RES_OK;
     return Stat;
   /* USER CODE END STATUS */
 }
@@ -118,7 +124,20 @@ DRESULT USER_read (
 )
 {
   /* USER CODE BEGIN READ */
-    return RES_OK;
+	if(!count)
+	  {
+		return RES_PARERR;
+	  }
+
+	  for(; count > 0; count--)
+	  {
+		  W25qxx_ReadBytes(sector * FLASH_SECTOR_SIZE, buff, FLASH_SECTOR_SIZE);
+	    sector++;
+	    buff += FLASH_SECTOR_SIZE;
+	  }
+
+	  return RES_OK;
+
   /* USER CODE END READ */
 }
 
@@ -140,7 +159,18 @@ DRESULT USER_write (
 {
   /* USER CODE BEGIN WRITE */
   /* USER CODE HERE */
-    return RES_OK;
+	if(!count)
+	  {
+	    return RES_PARERR;
+	  }
+
+	  for(; count > 0; count--)
+	  {
+		  W25qxx_WriteByte(sector * FLASH_SECTOR_SIZE, (uint8_t *)buff);
+	    sector++;
+	    buff += FLASH_SECTOR_SIZE;
+	  }
+
   /* USER CODE END WRITE */
 }
 #endif /* _USE_WRITE == 1 */
@@ -160,8 +190,35 @@ DRESULT USER_ioctl (
 )
 {
   /* USER CODE BEGIN IOCTL */
-    DRESULT res = RES_ERROR;
-    return res;
+	DRESULT res;
+
+	  switch(cmd)
+	  {
+	  case CTRL_SYNC:
+	    res = RES_OK;
+	    break;
+
+	  case GET_SECTOR_SIZE:
+	    *(WORD*)buff = FLASH_SECTOR_SIZE;
+	    res = RES_OK;
+	    break;
+
+	  case GET_BLOCK_SIZE:
+	    *(WORD*)buff = FLASH_BLOCK_SIZE;
+	    res = RES_OK;
+	    break;
+
+	  case GET_SECTOR_COUNT:
+	    *(DWORD*)buff = FLASH_SECTOR_COUNT;
+	    res = RES_OK;
+	    break;
+
+	  default:
+	    res = RES_PARERR;
+	    break;
+	  }
+
+	  return res;
   /* USER CODE END IOCTL */
 }
 #endif /* _USE_IOCTL == 1 */

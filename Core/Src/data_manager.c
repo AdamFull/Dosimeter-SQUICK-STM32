@@ -10,6 +10,7 @@
 #include "stdint.h"
 #include "stdlib.h"
 #include "math.h"
+#include "fatfs.h"
 
 //+++++++++++++++++++++VARIABLES+++++++++++++++++++++
 
@@ -52,6 +53,8 @@ uint8_t x_p;
 
 float mean;
 float std;
+
+extern FATFS USERFatFS;
 
 void Initialize_data(){
 	Read_memory();
@@ -107,6 +110,10 @@ void Save_alarm_threshold(){
 
 void Reset_to_defaults(){
 
+}
+
+bool Init_memory(){
+	return f_mount(&USERFatFS, "", 1);
 }
 
 void Setup_memory(){

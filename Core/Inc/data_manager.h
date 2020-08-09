@@ -23,6 +23,7 @@ void Save_dose_save_interval();
 void Save_alarm_threshold();
 void Reset_to_defaults();
 
+bool Init_memory();
 void Setup_memory();
 void Read_memory();
 bool is_memory_valid();

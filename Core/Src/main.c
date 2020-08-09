@@ -120,17 +120,19 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim1);
   HAL_TIM_Base_Start_IT(&htim3);
-
+  if(Init_memory()){
+  	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
+   }
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	if(millis() - current_millis > 1000){
+	/*if(millis() - current_millis > 1000){
 		current_millis = millis();
 		HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-	}
+	}*/
   }
     /* USER CODE END WHILE */
 
