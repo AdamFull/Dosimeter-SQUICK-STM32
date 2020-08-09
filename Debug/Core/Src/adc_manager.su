@@ -1,8 +1,0 @@
-adc_manager.c:21:6:adc_init	4	static
-adc_manager.c:25:10:get_battery_voltage	4	static
-adc_manager.c:29:10:get_hv	4	static
-adc_manager.c:33:6:pwm_transformer	16	static
-adc_manager.c:37:6:pwm_backlight	16	static
-adc_manager.c:41:6:pwm_tone	16	static
-adc_manager.c:45:10:adc_battery_channel_read	4	static
-adc_manager.c:49:10:adc_feedback_channel_read	4	static
