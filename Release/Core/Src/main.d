@@ -36,7 +36,8 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Middlewares/Third_Party/FatFs/src/ff.h ../FATFS/Target/user_diskio.h \
  ../USB_DEVICE/App/usb_device.h \
  ../Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_def.h \
- ../USB_DEVICE/Target/usbd_conf.h ../Core/Inc/fatfs_sd.h
+ ../USB_DEVICE/Target/usbd_conf.h ../Core/Inc/util.h \
+ ../Core/Inc/data_manager.h
 
 ../Core/Inc/main.h:
 
@@ -122,4 +123,6 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 
 ../USB_DEVICE/Target/usbd_conf.h:
 
-../Core/Inc/fatfs_sd.h:
+../Core/Inc/util.h:
+
+../Core/Inc/data_manager.h:

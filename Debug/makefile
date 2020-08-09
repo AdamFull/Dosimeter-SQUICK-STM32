@@ -54,8 +54,8 @@ GEIGERCOUNTER.bin \
 all: GEIGERCOUNTER.elf secondary-outputs
 
 # Tool invocations
-GEIGERCOUNTER.elf: $(OBJS) $(USER_OBJS) D:\STM32CubeIDE\workspace_1.4.0\GEIGERCOUNTER\STM32F103C8TX_FLASH.ld
-	arm-none-eabi-gcc -o "GEIGERCOUNTER.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"D:\STM32CubeIDE\workspace_1.4.0\GEIGERCOUNTER\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="GEIGERCOUNTER.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+GEIGERCOUNTER.elf: $(OBJS) $(USER_OBJS) E:\GitHub\Dosimeter-SQUICK-STM32\STM32F103C8TX_FLASH.ld
+	arm-none-eabi-gcc -o "GEIGERCOUNTER.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"E:\GitHub\Dosimeter-SQUICK-STM32\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="GEIGERCOUNTER.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
