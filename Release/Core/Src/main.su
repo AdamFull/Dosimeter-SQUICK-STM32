@@ -1,0 +1,5 @@
+main.c:89:6:get_sd_capacity	16	static
+main.c:95:6:init_sd	8	static
+main.c:170:6:SystemClock_Config	96	static
+main.c:114:5:main	88	static
+main.c:648:6:Error_Handler	0	static

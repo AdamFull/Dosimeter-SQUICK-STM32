@@ -1,0 +1,2 @@
+util.c:13:15:millis	4	static
+util.c:14:20:micros	8	static

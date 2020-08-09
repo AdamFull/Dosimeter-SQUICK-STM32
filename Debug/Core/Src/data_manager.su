@@ -1,0 +1,17 @@
+data_manager.c:56:6:Initialize_data	8	static
+data_manager.c:62:6:Update_rad_buffer	24	static
+data_manager.c:76:6:Save_dose	4	static
+data_manager.c:80:6:Save_tone	4	static
+data_manager.c:84:6:Save_backlight	4	static
+data_manager.c:88:6:Save_contrast	4	static
+data_manager.c:92:6:Save_geiger_time	4	static
+data_manager.c:96:6:Save_geiger_error	4	static
+data_manager.c:100:6:Save_dose_save_interval	4	static
+data_manager.c:104:6:Save_alarm_threshold	4	static
+data_manager.c:108:6:Reset_to_defaults	4	static
+data_manager.c:112:6:Setup_memory	4	static
+data_manager.c:116:6:Read_memory	4	static
+data_manager.c:120:6:is_memory_valid	4	static
+data_manager.c:124:6:Reset_dose	4	static
+data_manager.c:128:6:Reset_activity_test	4	static
+data_manager.c:141:6:Calculate_std	40	static
