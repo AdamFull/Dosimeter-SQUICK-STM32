@@ -88,7 +88,7 @@ DSTATUS USER_initialize (
 	if(W25qxx_Init())
 		Stat = RES_OK;
 	else
-		Stat = STA_NOINIT;
+		Stat = RES_ERROR;
     return Stat;
   /* USER CODE END INIT */
 }

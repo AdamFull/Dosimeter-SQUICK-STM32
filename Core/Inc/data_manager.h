@@ -10,6 +10,8 @@
 
 #include "stdbool.h"
 
+typedef const char* string;
+
 void Initialize_data();
 void Update_rad_buffer();
 
@@ -24,8 +26,9 @@ void Save_alarm_threshold();
 void Reset_to_defaults();
 
 bool Init_memory();
-void Setup_memory();
-void Read_memory();
+bool Setup_memory();
+string Read_memory(string file_name);
+bool Write_memory(string file_name, string file_data);
 bool is_memory_valid();
 
 void Reset_dose();

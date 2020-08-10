@@ -24,7 +24,11 @@ FATFS USERFatFS;    /* File system object for USER logical drive */
 FIL USERFile;       /* File object for USER */
 
 /* USER CODE BEGIN Variables */
-
+FATFS *pfs;
+FRESULT fres;
+DWORD fre_clust;
+uint32_t total_memory, free_memory;
+char buffer[100];
 /* USER CODE END Variables */
 
 void MX_FATFS_Init(void)

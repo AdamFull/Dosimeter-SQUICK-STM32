@@ -57,6 +57,7 @@ UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 unsigned long current_millis;
+extern bool is_memory_initialized;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -120,9 +121,10 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim1);
   HAL_TIM_Base_Start_IT(&htim3);
-  if(Init_memory()){
-  	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
-   }
+
+  HAL_Delay(200);
+  Initialize_data();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -627,7 +629,10 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
-
+	while(1){
+		HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+		HAL_Delay(100);
+	}
   /* USER CODE END Error_Handler_Debug */
 }
 

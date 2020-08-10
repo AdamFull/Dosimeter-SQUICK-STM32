@@ -11,6 +11,7 @@
 #include "stdlib.h"
 #include "math.h"
 #include "fatfs.h"
+#include "string.h"
 
 //+++++++++++++++++++++VARIABLES+++++++++++++++++++++
 
@@ -40,6 +41,7 @@ bool is_low_voltage = false;
 bool is_charging = false;
 bool is_charged = false;
 bool is_detected = false;
+bool is_memory_initialized = false;
 
 uint16_t *rad_buff;
 uint32_t rad_sum, rad_back, rad_max, rad_dose, rad_dose_old;
@@ -55,9 +57,15 @@ float mean;
 float std;
 
 extern FATFS USERFatFS;
+extern FIL USERFile;
+extern FATFS *pfs;
+extern FRESULT fres;
+extern DWORD fre_clust;
+extern uint32_t total_memory, free_memory;
 
 void Initialize_data(){
-	Read_memory();
+	is_memory_initialized = Init_memory();
+	//Read_memory("config.ini");
 	Reset_activity_test();
 	Update_rad_buffer();
 }
@@ -113,15 +121,50 @@ void Reset_to_defaults(){
 }
 
 bool Init_memory(){
-	return f_mount(&USERFatFS, "", 1);
+	FRESULT mount_status, space_status;
+
+	mount_status = f_mount(&USERFatFS, "", 0);
+	HAL_Delay(200);
+	//space_status = f_getfree("", &fre_clust, &pfs);
+	//total_memory = (uint32_t)((pfs->n_fatent - 2) * pfs->csize * 0.5);
+	//free_memory = (uint32_t)(fre_clust * pfs->csize * 0.5);
+
+	if(mount_status != FR_OK) {
+		while(true){
+			HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+			HAL_Delay(200);
+		}
+	}else{
+		return true;
+	}
+	return false;
+
 }
 
-void Setup_memory(){
-
+bool Setup_memory(){
+	if(free_memory < 1);
+	return 0;
 }
 
-void Read_memory(){
+string Read_memory(string file_name){
+	FRESULT open_status = FR_DENIED;
+	if(free_memory < 1){
+		open_status = f_open(&USERFile, file_name, FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
+		//f_read(fp, buff, btr, br);
+	}
 
+	return "";
+}
+
+bool Write_memory(string file_name, string file_data){
+	FRESULT open_status = FR_DENIED;
+	if(free_memory < 1){
+		open_status = f_open(&USERFile, file_name, FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
+		if(open_status == FR_OK){
+			//f_write(&USERFile, file_data, btw, bw)
+		}
+	}
+	return open_status == FR_OK ? true : false;
 }
 
 bool is_memory_valid(){
