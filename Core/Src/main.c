@@ -26,6 +26,7 @@
 /* USER CODE BEGIN Includes */
 #include "util.h"
 #include "data_manager.h"
+#include "adc_manager.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -126,8 +127,17 @@ int main(void)
 
   //Enable timers
 	  HAL_TIM_Base_Start_IT(&htim1);
-	  HAL_TIM_Base_Start_IT(&htim2);
+	  //HAL_TIM_Base_Start_IT(&htim2);
 	  HAL_TIM_Base_Start_IT(&htim3);
+
+	  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+	  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+	  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+
+	  HAL_ADCEx_Calibration_Start(&hadc1);
+	  HAL_ADCEx_Calibration_Start(&hadc2);
+
+	  pwm_transformer(128);
 
   //}else{
 	  //Error_Handler();
