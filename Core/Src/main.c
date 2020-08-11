@@ -123,16 +123,17 @@ int main(void)
   Initialize_data();
 
   //if(error_detector == NO_ERROR){
-  	  //HAL_EXTI_
 
   //Enable timers
 	  HAL_TIM_Base_Start_IT(&htim1);
 	  HAL_TIM_Base_Start_IT(&htim2);
 	  HAL_TIM_Base_Start_IT(&htim3);
 
+  //}else{
+	  //Error_Handler();
   //}
 
-  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_13);
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
 
   /* USER CODE END 2 */
 

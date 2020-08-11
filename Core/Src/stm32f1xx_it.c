@@ -50,7 +50,6 @@ void SystemClock_Config(void);
 extern volatile unsigned long long micros_timer;
 extern volatile unsigned long millis_timer;
 volatile unsigned long millis_counter;
-volatile uint32_t tmp_buff=0;
 
 extern volatile uint8_t mass[];
 extern uint8_t page, active_counters, counter_mode, Real_geigertime;
@@ -225,8 +224,8 @@ void SysTick_Handler(void)
 void EXTI1_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI1_IRQn 0 */
-	HAL_GPIO_TogglePin(GPIOx, GPIO_Pin);
-	if(active_counters == 1 && active_counters == 3){
+	if(active_counters == 1 || active_counters == 3){
+		HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
 		if(counter_mode==0){    //Режим поиска
 			if(rad_buff[0]!=65535) rad_buff[0]++;
 			if(++rad_sum>999999UL*3600/Real_geigertime) rad_sum=999999UL*3600/Real_geigertime; //общая сумма импульсов
@@ -252,7 +251,7 @@ void EXTI1_IRQHandler(void)
 void EXTI2_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI2_IRQn 0 */
-	if(active_counters == 2 && active_counters == 3){
+	if(active_counters == 2 || active_counters == 3){
 		if(counter_mode==0){    //Режим поиска
 			if(rad_buff[0]!=65535) rad_buff[0]++;
 			if(++rad_sum>999999UL*3600/Real_geigertime) rad_sum=999999UL*3600/Real_geigertime; //общая сумма импульсов
@@ -319,6 +318,8 @@ void TIM1_UP_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM1_UP_IRQn 0 */
 	//update_request();
+
+	uint32_t tmp_buff=0;
 
 	if(counter_mode == 0){
 		for(uint8_t i=0; i<Real_geigertime; i++) tmp_buff+=rad_buff[i]; //расчет фона мкР/ч
