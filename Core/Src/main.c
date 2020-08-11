@@ -122,8 +122,15 @@ int main(void)
   /* USER CODE BEGIN 2 */
   Initialize_data();
 
-  HAL_TIM_Base_Start_IT(&htim1);
-  HAL_TIM_Base_Start_IT(&htim3);
+  //if(error_detector == NO_ERROR){
+  	  //HAL_EXTI_
+
+  //Enable timers
+	  HAL_TIM_Base_Start_IT(&htim1);
+	  HAL_TIM_Base_Start_IT(&htim2);
+	  HAL_TIM_Base_Start_IT(&htim3);
+
+  //}
 
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_13);
 
@@ -134,10 +141,10 @@ int main(void)
   while (1)
   {
 	//if(error_detector != NO_ERROR) Error_Handler();
-	if(millis() - current_millis > 500){
+	/*if(millis() - current_millis > 500){
 		current_millis = millis();
 		HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-	}
+	}*/
   }
     /* USER CODE END WHILE */
 
@@ -626,6 +633,13 @@ void Error_Handler(void)
 		switch(error_detector){
 			case FLASH_MEMORY_ERROR:{
 				for(int i = 0; i < 10; i++){
+					HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+					HAL_Delay(100);
+				}
+			}break;
+
+			case HEAP_INITIALIZATION_ERROR:{
+				for(int i = 0; i < 20; i++){
 					HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
 					HAL_Delay(100);
 				}

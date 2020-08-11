@@ -50,6 +50,7 @@ void SystemClock_Config(void);
 extern volatile unsigned long long micros_timer;
 extern volatile unsigned long millis_timer;
 volatile unsigned long millis_counter;
+volatile uint32_t tmp_buff=0;
 
 extern volatile uint8_t mass[];
 extern uint8_t page, active_counters, counter_mode, Real_geigertime;
@@ -224,6 +225,7 @@ void SysTick_Handler(void)
 void EXTI1_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI1_IRQn 0 */
+	HAL_GPIO_TogglePin(GPIOx, GPIO_Pin);
 	if(active_counters == 1 && active_counters == 3){
 		if(counter_mode==0){    //Режим поиска
 			if(rad_buff[0]!=65535) rad_buff[0]++;
@@ -319,13 +321,12 @@ void TIM1_UP_IRQHandler(void)
 	//update_request();
 
 	if(counter_mode == 0){
-		uint32_t tmp_buff=0;
 		for(uint8_t i=0; i<Real_geigertime; i++) tmp_buff+=rad_buff[i]; //расчет фона мкР/ч
 		if(tmp_buff>999999) tmp_buff=999999; //переполнение
 		rad_back=tmp_buff;
 		stat_buff[stat_time] = rad_back; //Записываю текущее значение мкр/ч для расчёта погрешности
 
-		//Calculate_std(); //- crashing
+		Calculate_std(); //- crashing
 
 		if(rad_back>rad_max) rad_max=rad_back; //фиксируем максимум фона
 		for(uint8_t k=Real_geigertime-1; k>0; k--) rad_buff[k]=rad_buff[k-1]; //перезапись массива
@@ -341,12 +342,12 @@ void TIM1_UP_IRQHandler(void)
 
 		rad_dose=(rad_sum*Real_geigertime/3600); //расчитаем дозу
 
-		//mass[datamgr.x_p]=map(rad_back, 0, rad_max < 40 ? 40 : rad_max, 0, 15);
+		//mass[x_p]=map(rad_back, 0, rad_max < 40 ? 40 : rad_max, 0, 15);
 		if(x_p<83)x_p++;
 		if(x_p==83){
 			for(uint8_t i=0;i<83;i++)mass[i]=mass[i+1];
 		}
-		if(rad_max > 1) rad_max--;		//Потихоньку сбрасываем максиму
+		//if(rad_max > 1) rad_max--;		//Потихоньку сбрасываем максиму
 
 	}else if(counter_mode == 1){
 		//ТАймер для второго режима. Обратный отсчёт

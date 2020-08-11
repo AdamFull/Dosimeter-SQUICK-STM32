@@ -107,16 +107,15 @@ void Initialize_variables(){
 }
 
 void Initialize_data(){
-	//Initialize_variables();
+	Initialize_variables();
 	is_memory_initialized = Init_memory();
 	if(is_memory_initialized){
-		Read_memory("config.ini");
-		Reset_activity_test();
-		Update_rad_buffer();
+		Read_memory("config.ini");  //change to normal
 	}else{
 		error_detector = FLASH_MEMORY_ERROR;
 	}
-
+	Reset_activity_test();
+	Update_rad_buffer();
 }
 
 void Update_rad_buffer(){
@@ -126,15 +125,18 @@ void Update_rad_buffer(){
 
 	if(active_counters == 3) Real_geigertime = GEIGER_TIME/2;
 	else Real_geigertime = GEIGER_TIME;
-	rad_buff = malloc(Real_geigertime);
-	stat_buff = malloc(Real_geigertime);
-	for(unsigned i = 0; i < Real_geigertime; i++){ rad_buff[i] = 0;}
-	for(unsigned i = 0; i < Real_geigertime; i++){ stat_buff[i] = 0;}
-	rad_back = rad_max = 0;
-	rad_dose = rad_dose_old;
-	time_sec = time_min = 0;
-	time_min = 1;
-	for(unsigned i = 0; i < 83; i++) mass[i] = 0;
+	rad_buff = calloc(Real_geigertime, sizeof(uint16_t));
+	stat_buff = calloc(Real_geigertime, sizeof(uint32_t));
+
+	if(rad_buff != NULL && stat_buff != NULL){
+		rad_back = rad_max = 0;
+		rad_dose = rad_dose_old;
+		time_sec = time_min = 0;
+		time_min = 1;
+		for(unsigned i = 0; i < 83; i++) mass[i] = 0;
+	}else{
+		error_detector = HEAP_INITIALIZATION_ERROR;
+	}
 }
 
 void Save_dose(){
