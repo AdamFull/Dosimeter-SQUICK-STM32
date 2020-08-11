@@ -15,18 +15,18 @@
 
 //+++++++++++++++++++++VARIABLES+++++++++++++++++++++
 
-uint32_t *Stat_buff;		//Buffer for contain current stat values
-uint8_t Stat_time;
+uint32_t *stat_buff;		//Buffer for contain current stat values
+volatile uint8_t stat_time = 0;
 
-uint8_t Geiger_error;
-uint8_t GEIGER_TIME, Real_geigertime;
-uint16_t Transformer_pwm;
+uint8_t Geiger_error = 2;
+uint8_t GEIGER_TIME = 21, Real_geigertime = 21;
+uint16_t Transformer_pwm = 60;
 
-uint8_t LCD_contrast;
-uint16_t LCD_backlight;
-uint16_t Buzzer_tone;
+uint8_t LCD_contrast = 60;
+uint16_t LCD_backlight = 0;
+uint16_t Buzzer_tone = 20;
 
-uint8_t Save_dose_interval;
+uint8_t Save_dose_interval = 20;
 
 //-----------------------FLAGS-----------------------
 bool stop_timer = false;
@@ -40,27 +40,30 @@ bool is_muted = false;
 bool is_low_voltage = false;
 bool is_charging = false;
 bool is_charged = false;
-bool is_detected = false;
+volatile bool is_detected = false;
 bool is_memory_initialized = false;
 bool active_hv_gen = false;
 
-uint8_t active_counters;	//0 - external, 1 - first, 2 - second, 3 - first + second together
+bool is_mean_mode = false;
+
+uint8_t active_counters = 1;	//0 - external, 1 - first, 2 - second, 3 - first + second together
 uint16_t *rad_buff;
-uint32_t rad_sum, rad_back, rad_max, rad_dose, rad_dose_old;
-uint8_t time_min_old, time_min, time_sec;
-uint16_t timer_time, timer_remain;
-uint8_t sum_old;
+uint32_t rad_dose_old;
+volatile uint32_t rad_sum, rad_back, rad_max, rad_dose;
+uint8_t time_min_old;
+volatile uint8_t time_min = 1, time_sec = 1;
+volatile uint16_t timer_time, timer_remain;
+volatile uint8_t sum_old;
 unsigned long alarm_timer;
 
-uint8_t counter_mode;
+uint8_t counter_mode = 0;
 
-uint8_t mass[84];
-uint8_t x_p;
+volatile uint8_t mass[84];
+volatile uint8_t x_p = 0;
 
-float mean;
-float std;
+float mean, std;
 
-uint8_t page;
+uint8_t page = 0;
 
 DMGRESULT error_detector;
 
@@ -73,15 +76,38 @@ extern DWORD fre_clust;
 extern uint32_t total_memory, free_memory;
 
 void Initialize_variables(){
-	Stat_time = Geiger_error = GEIGER_TIME = Real_geigertime = LCD_contrast = Save_dose_interval =
-			active_counters = time_min_old = time_min = time_sec = sum_old = 0;
-	Transformer_pwm = LCD_backlight = Buzzer_tone = timer_time = timer_remain = 0;
-	rad_sum = rad_back = rad_max = rad_dose = rad_dose_old = 0;
+
+	//uint8_t init
+	stat_time = 0;
+	Geiger_error = 2;
+	GEIGER_TIME = 21;
+	Real_geigertime = 21;
+	LCD_contrast = 60;
+	Save_dose_interval = 20;
+	active_counters = 1;
+	time_min_old = 0;
+	time_min = 1;
+	time_sec = 0;
+	sum_old = 0;
+
+	//uint16_t init
+	Transformer_pwm = 60;
+	LCD_backlight = 0;
+	Buzzer_tone = 200;
+	timer_time = 0;
+	timer_remain = 0;
+
+	//uint32_t init
+	rad_sum = 0;
+	rad_back = 0;
+	rad_max = 0;
+	rad_dose = 0;
+	rad_dose_old = 0;
 
 }
 
 void Initialize_data(){
-	Initialize_variables();
+	//Initialize_variables();
 	is_memory_initialized = Init_memory();
 	if(is_memory_initialized){
 		Read_memory("config.ini");
@@ -95,15 +121,15 @@ void Initialize_data(){
 
 void Update_rad_buffer(){
 	free(rad_buff);
-	free(Stat_buff);
+	free(stat_buff);
 	//Придумать как в любом режиме считать в одну переменную
 
 	if(active_counters == 3) Real_geigertime = GEIGER_TIME/2;
 	else Real_geigertime = GEIGER_TIME;
 	rad_buff = malloc(Real_geigertime);
-	Stat_buff = malloc(Real_geigertime);
+	stat_buff = malloc(Real_geigertime);
 	for(unsigned i = 0; i < Real_geigertime; i++){ rad_buff[i] = 0;}
-	for(unsigned i = 0; i < Real_geigertime; i++){ Stat_buff[i] = 0;}
+	for(unsigned i = 0; i < Real_geigertime; i++){ stat_buff[i] = 0;}
 	rad_back = rad_max = 0;
 	rad_dose = rad_dose_old;
 	time_sec = time_min = 0;
@@ -151,13 +177,13 @@ bool Init_memory(){
 	FRESULT mount_status;
 	FRESULT space_status = mount_status  = FR_INT_ERR;
 
-	MX_FATFS_Init();
 	if(retUSER == 0) {
 		mount_status = f_mount(&USERFatFS, "", 1);
 		if(mount_status == FR_OK){
 			space_status = f_getfree("", &fre_clust, &pfs);
 			total_memory = (uint32_t)((pfs->n_fatent - 2) * pfs->csize * 0.5);
 			free_memory = (uint32_t)(fre_clust * pfs->csize * 0.5);
+			mount_status = mount_status & space_status;
 		}
 	}
 
@@ -214,9 +240,9 @@ void Reset_activity_test(){
 
 void Calculate_std(){
 	uint64_t _sum = 0;
-	for(unsigned i = 0; i < GEIGER_TIME; i++) _sum+=Stat_buff[i];
-	mean = (float)_sum/GEIGER_TIME;
+	for(unsigned i = 0; i < Real_geigertime; i++) _sum+=stat_buff[i];
+	mean = (float)_sum/Real_geigertime;
 	_sum = 0;
-	for(unsigned i = 0; i < GEIGER_TIME; i++) _sum+=pow(Stat_buff[i] - mean, 2);
-	std = (float)_sum/(float)(GEIGER_TIME-1);
+	for(unsigned i = 0; i < Real_geigertime; i++) _sum+=pow(stat_buff[i] - mean, 2);
+	std = (float)_sum/(float)(Real_geigertime-1);
 }

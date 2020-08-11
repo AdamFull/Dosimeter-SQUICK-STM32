@@ -24,6 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stdbool.h"
+#include "data_manager.h"
 /* USER CODE END Includes */
 
 /* External functions --------------------------------------------------------*/
@@ -50,13 +51,16 @@ extern volatile unsigned long long micros_timer;
 extern volatile unsigned long millis_timer;
 volatile unsigned long millis_counter;
 
-extern uint8_t counter_mode;
+extern volatile uint8_t mass[];
+extern uint8_t page, active_counters, counter_mode, Real_geigertime;
+extern volatile uint8_t time_min, time_sec, x_p, stat_time;
+extern volatile uint16_t timer_remain;
 extern uint16_t *rad_buff;
-extern uint8_t Real_geigertime;
-extern uint32_t rad_sum, rad_back;
-extern uint8_t page;
-extern bool is_detected, stop_timer, do_alarm;
-extern uint8_t active_counters;
+extern volatile uint32_t rad_sum, rad_back, rad_max, rad_dose, sum_old;
+extern uint32_t *stat_buff;
+extern volatile bool is_detected;
+extern bool stop_timer, do_alarm, is_mean_mode;
+extern float mean;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -220,7 +224,7 @@ void SysTick_Handler(void)
 void EXTI1_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI1_IRQn 0 */
-	if(active_counters == 1, active_counters == 3){
+	if(active_counters == 1 && active_counters == 3){
 		if(counter_mode==0){    //Режим поиска
 			if(rad_buff[0]!=65535) rad_buff[0]++;
 			if(++rad_sum>999999UL*3600/Real_geigertime) rad_sum=999999UL*3600/Real_geigertime; //общая сумма импульсов
@@ -246,7 +250,7 @@ void EXTI1_IRQHandler(void)
 void EXTI2_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI2_IRQn 0 */
-	if(active_counters == 1, active_counters == 3){
+	if(active_counters == 2 && active_counters == 3){
 		if(counter_mode==0){    //Режим поиска
 			if(rad_buff[0]!=65535) rad_buff[0]++;
 			if(++rad_sum>999999UL*3600/Real_geigertime) rad_sum=999999UL*3600/Real_geigertime; //общая сумма импульсов
@@ -312,7 +316,67 @@ void USB_LP_CAN1_RX0_IRQHandler(void)
 void TIM1_UP_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM1_UP_IRQn 0 */
+	//update_request();
 
+	if(counter_mode == 0){
+		uint32_t tmp_buff=0;
+		for(uint8_t i=0; i<Real_geigertime; i++) tmp_buff+=rad_buff[i]; //расчет фона мкР/ч
+		if(tmp_buff>999999) tmp_buff=999999; //переполнение
+		rad_back=tmp_buff;
+		stat_buff[stat_time] = rad_back; //Записываю текущее значение мкр/ч для расчёта погрешности
+
+		//Calculate_std(); //- crashing
+
+		if(rad_back>rad_max) rad_max=rad_back; //фиксируем максимум фона
+		for(uint8_t k=Real_geigertime-1; k>0; k--) rad_buff[k]=rad_buff[k-1]; //перезапись массива
+
+		rad_buff[0]=0; //сбрасываем счетчик импульсов
+
+		if(is_mean_mode){
+			rad_back = (uint32_t)mean;
+		}
+
+		if(stat_time > Real_geigertime) stat_time = 0; //Счётчик для расчёта статистической погрешности
+		else stat_time++;
+
+		rad_dose=(rad_sum*Real_geigertime/3600); //расчитаем дозу
+
+		//mass[datamgr.x_p]=map(rad_back, 0, rad_max < 40 ? 40 : rad_max, 0, 15);
+		if(x_p<83)x_p++;
+		if(x_p==83){
+			for(uint8_t i=0;i<83;i++)mass[i]=mass[i+1];
+		}
+		if(rad_max > 1) rad_max--;		//Потихоньку сбрасываем максиму
+
+	}else if(counter_mode == 1){
+		//ТАймер для второго режима. Обратный отсчёт
+		//bool stop_timer = stop_timer;
+		if(!stop_timer){
+			if(time_min != 0 && time_sec == 0){
+				--time_min;
+				time_sec=60;
+			}
+			if(time_sec != 0){ --time_sec; }
+			timer_remain--;
+			if(timer_remain == 0){
+				stop_timer = true;
+				do_alarm = true;
+			}
+		}
+	}else if(counter_mode == 2){
+		//Секундный замер, сбрасываем счётчик каждую секунду
+		if(rad_max < rad_buff[0]) rad_max = rad_buff[0];
+		sum_old=rad_buff[0];
+
+		//mass[x_p]=map(rad_buff[0], 0, rad_max < 2 ? 2 : rad_max, 0, 15);
+	    if(x_p<83)x_p++;
+	    if(x_p==83){
+	        for(uint8_t i=0;i<83;i++)mass[i]=mass[i+1];
+	    }
+
+		if(rad_max > 1) rad_max--;		//Потихоньку сбрасываем максимум
+			rad_buff[0]=0; //сбрасываем счетчик импульсов
+		}
   /* USER CODE END TIM1_UP_IRQn 0 */
   HAL_TIM_IRQHandler(&htim1);
   /* USER CODE BEGIN TIM1_UP_IRQn 1 */

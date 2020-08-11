@@ -42,6 +42,6 @@ void Reset_dose();
 
 void Reset_activity_test();
 
-void Calculate_std();
+volatile void Calculate_std();
 
 #endif /* INC_DATA_MANAGER_H_ */
