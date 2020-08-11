@@ -23,6 +23,7 @@
 #include "stm32f1xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "stdbool.h"
 /* USER CODE END Includes */
 
 /* External functions --------------------------------------------------------*/
@@ -48,6 +49,14 @@ void SystemClock_Config(void);
 extern volatile unsigned long long micros_timer;
 extern volatile unsigned long millis_timer;
 volatile unsigned long millis_counter;
+
+extern uint8_t counter_mode;
+extern uint16_t *rad_buff;
+extern uint8_t Real_geigertime;
+extern uint32_t rad_sum, rad_back;
+extern uint8_t page;
+extern bool is_detected, stop_timer, do_alarm;
+extern uint8_t active_counters;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -211,7 +220,19 @@ void SysTick_Handler(void)
 void EXTI1_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI1_IRQn 0 */
-
+	if(active_counters == 1, active_counters == 3){
+		if(counter_mode==0){    //Режим поиска
+			if(rad_buff[0]!=65535) rad_buff[0]++;
+			if(++rad_sum>999999UL*3600/Real_geigertime) rad_sum=999999UL*3600/Real_geigertime; //общая сумма импульсов
+			if(page == 1 && !do_alarm){ is_detected = true; }
+		}else if(counter_mode==1){							//Режим измерения активности
+			if(!stop_timer) if(++rad_back>999999UL*3600/Real_geigertime) rad_back=999999UL*3600/Real_geigertime; //Сумма импульсов для режима измерения
+		}else if(counter_mode==2){							//Режим измерения активности
+			if(rad_buff[0]!=65535) rad_buff[0]++;
+			//outmgr.update_request();
+		}
+		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
+	}
   /* USER CODE END EXTI1_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1);
   /* USER CODE BEGIN EXTI1_IRQn 1 */
@@ -225,7 +246,19 @@ void EXTI1_IRQHandler(void)
 void EXTI2_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI2_IRQn 0 */
-
+	if(active_counters == 1, active_counters == 3){
+		if(counter_mode==0){    //Режим поиска
+			if(rad_buff[0]!=65535) rad_buff[0]++;
+			if(++rad_sum>999999UL*3600/Real_geigertime) rad_sum=999999UL*3600/Real_geigertime; //общая сумма импульсов
+			if(page == 1 && !do_alarm){ is_detected = true; }
+		}else if(counter_mode==1){							//Режим измерения активности
+			if(!stop_timer) if(++rad_back>999999UL*3600/Real_geigertime) rad_back=999999UL*3600/Real_geigertime; //Сумма импульсов для режима измерения
+		}else if(counter_mode==2){							//Режим измерения активности
+			if(rad_buff[0]!=65535) rad_buff[0]++;
+				//outmgr.update_request();
+		}
+		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
+	}
   /* USER CODE END EXTI2_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_2);
   /* USER CODE BEGIN EXTI2_IRQn 1 */
@@ -239,7 +272,19 @@ void EXTI2_IRQHandler(void)
 void EXTI3_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI3_IRQn 0 */
-
+	if(active_counters == 0){
+		if(counter_mode==0){    //Режим поиска
+			if(rad_buff[0]!=65535) rad_buff[0]++;
+			if(++rad_sum>999999UL*3600/Real_geigertime) rad_sum=999999UL*3600/Real_geigertime; //общая сумма импульсов
+			if(page == 1 && !do_alarm){ is_detected = true; }
+		}else if(counter_mode==1){							//Режим измерения активности
+			if(!stop_timer) if(++rad_back>999999UL*3600/Real_geigertime) rad_back=999999UL*3600/Real_geigertime; //Сумма импульсов для режима измерения
+		}else if(counter_mode==2){							//Режим измерения активности
+			if(rad_buff[0]!=65535) rad_buff[0]++;
+			//outmgr.update_request();
+		}
+		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
+	}
   /* USER CODE END EXTI3_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_3);
   /* USER CODE BEGIN EXTI3_IRQn 1 */

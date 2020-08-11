@@ -58,6 +58,7 @@ UART_HandleTypeDef huart1;
 /* USER CODE BEGIN PV */
 unsigned long current_millis;
 extern bool is_memory_initialized;
+extern DMGRESULT error_detector;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -122,8 +123,9 @@ int main(void)
   HAL_TIM_Base_Start_IT(&htim1);
   HAL_TIM_Base_Start_IT(&htim3);
 
-  HAL_Delay(200);
   Initialize_data();
+
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_13);
 
   /* USER CODE END 2 */
 
@@ -131,10 +133,11 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	/*if(millis() - current_millis > 1000){
+	//if(error_detector != NO_ERROR) Error_Handler();
+	if(millis() - current_millis > 500){
 		current_millis = millis();
 		HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-	}*/
+	}
   }
     /* USER CODE END WHILE */
 
@@ -564,9 +567,6 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(BLINK_GPIO_Port, BLINK_Pin, GPIO_PIN_RESET);
-
   /*Configure GPIO pin : PC13 */
   GPIO_InitStruct.Pin = GPIO_PIN_13;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -591,13 +591,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(SPI1_RST_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : BLINK_Pin */
-  GPIO_InitStruct.Pin = BLINK_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(BLINK_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PB11 BSET_Pin BRSET_Pin */
   GPIO_InitStruct.Pin = GPIO_PIN_11|BSET_Pin|BRSET_Pin;
@@ -630,8 +623,15 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
 	while(1){
-		HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-		HAL_Delay(100);
+		switch(error_detector){
+			case FLASH_MEMORY_ERROR:{
+				for(int i = 0; i < 10; i++){
+					HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+					HAL_Delay(100);
+				}
+			}break;
+		}
+		HAL_Delay(1000);
 	}
   /* USER CODE END Error_Handler_Debug */
 }

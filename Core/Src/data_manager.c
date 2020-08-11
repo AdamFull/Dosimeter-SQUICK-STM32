@@ -19,7 +19,7 @@ uint32_t *Stat_buff;		//Buffer for contain current stat values
 uint8_t Stat_time;
 
 uint8_t Geiger_error;
-uint8_t GEIGER_TIME;
+uint8_t GEIGER_TIME, Real_geigertime;
 uint16_t Transformer_pwm;
 
 uint8_t LCD_contrast;
@@ -42,7 +42,9 @@ bool is_charging = false;
 bool is_charged = false;
 bool is_detected = false;
 bool is_memory_initialized = false;
+bool active_hv_gen = false;
 
+uint8_t active_counters;	//0 - external, 1 - first, 2 - second, 3 - first + second together
 uint16_t *rad_buff;
 uint32_t rad_sum, rad_back, rad_max, rad_dose, rad_dose_old;
 uint8_t time_min_old, time_min, time_sec;
@@ -50,12 +52,19 @@ uint16_t timer_time, timer_remain;
 uint8_t sum_old;
 unsigned long alarm_timer;
 
+uint8_t counter_mode;
+
 uint8_t mass[84];
 uint8_t x_p;
 
 float mean;
 float std;
 
+uint8_t page;
+
+DMGRESULT error_detector;
+
+extern uint8_t retUSER;
 extern FATFS USERFatFS;
 extern FIL USERFile;
 extern FATFS *pfs;
@@ -63,20 +72,38 @@ extern FRESULT fres;
 extern DWORD fre_clust;
 extern uint32_t total_memory, free_memory;
 
+void Initialize_variables(){
+	Stat_time = Geiger_error = GEIGER_TIME = Real_geigertime = LCD_contrast = Save_dose_interval =
+			active_counters = time_min_old = time_min = time_sec = sum_old = 0;
+	Transformer_pwm = LCD_backlight = Buzzer_tone = timer_time = timer_remain = 0;
+	rad_sum = rad_back = rad_max = rad_dose = rad_dose_old = 0;
+
+}
+
 void Initialize_data(){
+	Initialize_variables();
 	is_memory_initialized = Init_memory();
-	//Read_memory("config.ini");
-	Reset_activity_test();
-	Update_rad_buffer();
+	if(is_memory_initialized){
+		Read_memory("config.ini");
+		Reset_activity_test();
+		Update_rad_buffer();
+	}else{
+		error_detector = FLASH_MEMORY_ERROR;
+	}
+
 }
 
 void Update_rad_buffer(){
 	free(rad_buff);
 	free(Stat_buff);
-	rad_buff = malloc(GEIGER_TIME);
-	Stat_buff = malloc(GEIGER_TIME);
-	for(unsigned i = 0; i < GEIGER_TIME; i++){ rad_buff[i] = 0;}
-	for(unsigned i = 0; i < GEIGER_TIME; i++){ Stat_buff[i] = 0;}
+	//Придумать как в любом режиме считать в одну переменную
+
+	if(active_counters == 3) Real_geigertime = GEIGER_TIME/2;
+	else Real_geigertime = GEIGER_TIME;
+	rad_buff = malloc(Real_geigertime);
+	Stat_buff = malloc(Real_geigertime);
+	for(unsigned i = 0; i < Real_geigertime; i++){ rad_buff[i] = 0;}
+	for(unsigned i = 0; i < Real_geigertime; i++){ Stat_buff[i] = 0;}
 	rad_back = rad_max = 0;
 	rad_dose = rad_dose_old;
 	time_sec = time_min = 0;
@@ -121,23 +148,20 @@ void Reset_to_defaults(){
 }
 
 bool Init_memory(){
-	FRESULT mount_status, space_status;
+	FRESULT mount_status;
+	FRESULT space_status = mount_status  = FR_INT_ERR;
 
-	mount_status = f_mount(&USERFatFS, "", 0);
-	HAL_Delay(200);
-	//space_status = f_getfree("", &fre_clust, &pfs);
-	//total_memory = (uint32_t)((pfs->n_fatent - 2) * pfs->csize * 0.5);
-	//free_memory = (uint32_t)(fre_clust * pfs->csize * 0.5);
-
-	if(mount_status != FR_OK) {
-		while(true){
-			HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-			HAL_Delay(200);
+	MX_FATFS_Init();
+	if(retUSER == 0) {
+		mount_status = f_mount(&USERFatFS, "", 1);
+		if(mount_status == FR_OK){
+			space_status = f_getfree("", &fre_clust, &pfs);
+			total_memory = (uint32_t)((pfs->n_fatent - 2) * pfs->csize * 0.5);
+			free_memory = (uint32_t)(fre_clust * pfs->csize * 0.5);
 		}
-	}else{
-		return true;
 	}
-	return false;
+
+	return mount_status == FR_OK;
 
 }
 

@@ -71,8 +71,6 @@ void Error_Handler(void);
 #define GINT3_EXTI_IRQn EXTI3_IRQn
 #define SPI1_RST_Pin GPIO_PIN_0
 #define SPI1_RST_GPIO_Port GPIOB
-#define BLINK_Pin GPIO_PIN_2
-#define BLINK_GPIO_Port GPIOB
 #define BSET_Pin GPIO_PIN_4
 #define BSET_GPIO_Port GPIOB
 #define BRSET_Pin GPIO_PIN_5

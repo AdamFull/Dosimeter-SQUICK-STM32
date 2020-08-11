@@ -12,6 +12,13 @@
 
 typedef const char* string;
 
+typedef enum {
+	NO_ERROR,
+	FLASH_MEMORY_ERROR,
+
+} DMGRESULT;
+
+void Initialize_variables();
 void Initialize_data();
 void Update_rad_buffer();
 
