@@ -18,7 +18,6 @@ void pwm_transformer(uint8_t pwm);
 void pwm_backlight(uint8_t pwm);
 void pwm_tone(uint8_t pwm);
 
-uint16_t adc_battery_channel_read();
-uint16_t adc_feedback_channel_read();
+void adc_enable_reading();
 
 #endif /* INC_MEANING_MANAGER_H_ */

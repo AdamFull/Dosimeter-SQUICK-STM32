@@ -47,9 +47,13 @@ void SystemClock_Config(void);
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
+volatile unsigned long millis_counter;
+
+extern ADC_HandleTypeDef hadc1;
+extern ADC_HandleTypeDef hadc2;
+
 extern volatile unsigned long long micros_timer;
 extern volatile unsigned long millis_timer;
-volatile unsigned long millis_counter;
 
 extern volatile uint8_t mass[];
 extern uint8_t page, active_counters, counter_mode, Real_geigertime;
@@ -61,6 +65,7 @@ extern uint32_t *stat_buff;
 extern volatile bool is_detected;
 extern bool stop_timer, do_alarm, is_mean_mode;
 extern float mean;
+extern uint16_t battery_adc_value, high_voltage_adc_value;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -70,11 +75,22 @@ extern float mean;
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+    if(hadc->Instance == ADC1) //check if the interrupt comes from ACD1
+    {
+    	battery_adc_value = HAL_ADC_GetValue(hadc);
+    }else if(hadc->Instance == ADC2){
+    	high_voltage_adc_value = HAL_ADC_GetValue(hadc);
+    }
+    //HAL_ADC_Start_IT(hadc);
+}
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
 extern PCD_HandleTypeDef hpcd_USB_FS;
+extern ADC_HandleTypeDef hadc1;
+extern ADC_HandleTypeDef hadc2;
 extern TIM_HandleTypeDef htim1;
 extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim3;
@@ -294,6 +310,21 @@ void EXTI3_IRQHandler(void)
   /* USER CODE BEGIN EXTI3_IRQn 1 */
 
   /* USER CODE END EXTI3_IRQn 1 */
+}
+
+/**
+  * @brief This function handles ADC1 and ADC2 global interrupts.
+  */
+void ADC1_2_IRQHandler(void)
+{
+  /* USER CODE BEGIN ADC1_2_IRQn 0 */
+
+  /* USER CODE END ADC1_2_IRQn 0 */
+  HAL_ADC_IRQHandler(&hadc1);
+  HAL_ADC_IRQHandler(&hadc2);
+  /* USER CODE BEGIN ADC1_2_IRQn 1 */
+
+  /* USER CODE END ADC1_2_IRQn 1 */
 }
 
 /**

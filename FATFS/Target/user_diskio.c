@@ -170,7 +170,7 @@ DRESULT USER_write (
 	    sector++;
 	    buff += FLASH_SECTOR_SIZE;
 	  }
-
+	  return RES_OK;
   /* USER CODE END WRITE */
 }
 #endif /* _USE_WRITE == 1 */

@@ -24,6 +24,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "stdio.h"
 #include "util.h"
 #include <meaning_manager.h>
 #include "data_manager.h"
@@ -31,7 +32,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+typedef int (*__heapprt)(void *, char const *, ...);
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -81,7 +82,7 @@ static void MX_SPI2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+__heapstats( (__heapprt)fprintf, stdout ) ;
 /* USER CODE END 0 */
 
 /**
@@ -137,7 +138,9 @@ int main(void)
 	  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
 
 	  HAL_ADCEx_Calibration_Start(&hadc1);
+	  HAL_ADC_Start_IT(&hadc1);
 	  HAL_ADCEx_Calibration_Start(&hadc2);
+	  HAL_ADC_Start_IT(&hadc2);
 
 	  pwm_transformer(128);
 
@@ -145,6 +148,7 @@ int main(void)
 	  //Error_Handler();
   //}
 
+  __heapstats();
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
 
   /* USER CODE END 2 */
@@ -156,6 +160,7 @@ int main(void)
 	//if(error_detector != NO_ERROR) Error_Handler();
 	if(millis() - current_millis > 5000){
 		current_millis = millis();
+		adc_enable_reading();
 		current_battery_voltage = get_battery_voltage();
 		current_high_voltage = get_high_voltage();
 		HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
@@ -206,7 +211,7 @@ void SystemClock_Config(void)
     Error_Handler();
   }
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC|RCC_PERIPHCLK_USB;
-  PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV6;
+  PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV8;
   PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_PLL_DIV1_5;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {

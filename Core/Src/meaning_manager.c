@@ -20,6 +20,8 @@ uint8_t avgFactor = 5;
 uint16_t batValue = 0;
 uint16_t hvValue = 0;
 
+uint16_t battery_adc_value, high_voltage_adc_value;
+
 bool is_first_meaning = true;
 
 extern ADC_HandleTypeDef hadc1;
@@ -33,7 +35,7 @@ void adc_init(){
 uint16_t get_battery_voltage(){
 	uint16_t resulting_value = 0;
 	for(int i = 0; i < 30; i++){
-		batValue = (batValue * (avgFactor - 1) + adc_battery_channel_read()) / avgFactor;
+		batValue = (batValue * (avgFactor - 1) + battery_adc_value) / avgFactor;
 	}
 	if(is_first_meaning_b){
 		for(uint8_t i = 0; i < BANK_SIZE; i++) battery_bank[i] = batValue;
@@ -51,7 +53,7 @@ uint16_t get_battery_voltage(){
 uint16_t get_high_voltage(){
 	uint16_t resulting_value = 0;
 	for(int i = 0; i < 30; i++){
-		hvValue = (hvValue * (avgFactor - 1) + adc_feedback_channel_read()) / avgFactor;
+		hvValue = (hvValue * (avgFactor - 1) + high_voltage_adc_value) / avgFactor;
 	}
 	if(is_first_meaning_h){
 		for(uint8_t i = 0; i < BANK_SIZE; i++) hv_bank[i] = hvValue;
@@ -78,20 +80,10 @@ void pwm_tone(uint8_t pwm){
 	TIM2->CCR3 = pwm;
 }
 
-uint16_t adc_battery_channel_read(){
-	uint16_t adc;
-	HAL_ADC_Start(&hadc1);
+void adc_enable_reading(){
+	/*HAL_ADC_Start(&hadc1);
 	HAL_ADC_PollForConversion(&hadc1, 50);
-	adc = HAL_ADC_GetValue(&hadc1);
-	HAL_ADC_Stop(&hadc1);
-	return adc;
-}
-
-uint16_t adc_feedback_channel_read(){
-	uint16_t adc;
-	HAL_ADC_Start(&hadc2);
-	HAL_ADC_PollForConversion(&hadc2, 50);
-	adc = HAL_ADC_GetValue(&hadc2);
-	HAL_ADC_Stop(&hadc2);
-	return adc;
+	HAL_ADC_Stop(&hadc1);*/
+	HAL_ADC_Start_IT(&hadc1);
+	HAL_ADC_Start_IT(&hadc2);
 }
