@@ -56,6 +56,8 @@ volatile uint16_t timer_time, timer_remain;
 volatile uint8_t sum_old;
 unsigned long alarm_timer;
 
+uint16_t current_battery_voltage, current_high_voltage;
+
 uint8_t counter_mode = 0;
 
 volatile uint8_t mass[84];

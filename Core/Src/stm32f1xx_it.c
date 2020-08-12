@@ -225,7 +225,6 @@ void EXTI1_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI1_IRQn 0 */
 	if(active_counters == 1 || active_counters == 3){
-		HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
 		if(counter_mode==0){    //Режим поиска
 			if(rad_buff[0]!=65535) rad_buff[0]++;
 			if(++rad_sum>999999UL*3600/Real_geigertime) rad_sum=999999UL*3600/Real_geigertime; //общая сумма импульсов
@@ -408,7 +407,7 @@ void TIM3_IRQHandler(void)
   /* USER CODE BEGIN TIM3_IRQn 0 */
   micros_timer++;
   millis_counter++;
-  if(millis_counter > 300){
+  if(millis_counter > 200){
 	  millis_counter = 0;
 	  millis_timer++;
   }

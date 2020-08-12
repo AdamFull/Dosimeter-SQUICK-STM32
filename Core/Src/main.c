@@ -25,8 +25,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "util.h"
+#include <meaning_manager.h>
 #include "data_manager.h"
-#include "adc_manager.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -60,6 +60,8 @@ UART_HandleTypeDef huart1;
 unsigned long current_millis;
 extern bool is_memory_initialized;
 extern DMGRESULT error_detector;
+
+extern uint16_t current_battery_voltage, current_high_voltage;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -152,10 +154,12 @@ int main(void)
   while (1)
   {
 	//if(error_detector != NO_ERROR) Error_Handler();
-	/*if(millis() - current_millis > 500){
+	if(millis() - current_millis > 5000){
 		current_millis = millis();
+		current_battery_voltage = get_battery_voltage();
+		current_high_voltage = get_high_voltage();
 		HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-	}*/
+	}
   }
     /* USER CODE END WHILE */
 
