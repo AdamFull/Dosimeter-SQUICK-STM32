@@ -24,15 +24,17 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "configuration.h"
 #include "stdio.h"
 #include "util.h"
-#include <meaning_manager.h>
-#include "data_manager.h"
+#include <managers/meaning_manager.h>
+#include "managers/data_manager.h"
+#include "libs/GyverButton_stm32.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-typedef int (*__heapprt)(void *, char const *, ...);
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -63,6 +65,15 @@ extern bool is_memory_initialized;
 extern DMGRESULT error_detector;
 
 extern uint16_t current_battery_voltage, current_high_voltage;
+extern bool is_charging, is_low_voltage, do_alarm, no_alarm, is_alarm;
+extern uint32_t rad_dose_old;
+extern volatile uint32_t rad_back, rad_max, rad_dose;
+extern uint16_t Transformer_pwm, LCD_backlight;
+extern uint8_t Save_dose_interval, counter_mode, Alarm_threshold;
+
+extern unsigned long alarm_timer;
+GyverButton btn_set;
+GyverButton btn_reset;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -82,7 +93,307 @@ static void MX_SPI2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-__heapstats( (__heapprt)fprintf, stdout ) ;
+void button_action(){
+	tick(&btn_reset);
+	tick(&btn_set);
+
+	if(isClick(&btn_reset)){
+		HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+	}
+
+	/*bool btn_reset_isHolded = btn_reset.isHolded();
+	bool btn_set_isHolded = btn_set.isHolded();
+
+	bool menu_mode = datamgr.page == 2;
+	bool editing_mode = datamgr.editing_mode;
+
+	if(btn_reset.isHold() && btn_set.isHold()){
+		if(!menu_mode){
+			datamgr.page = 2;
+			datamgr.menu_page = 0;
+			datamgr.editing_mode = false;
+		}else{
+			datamgr.editing_mode = false;
+			datamgr.page = 1;
+		}
+		outmgr.update_request();
+		btn_reset.resetStates();
+		btn_set.resetStates();
+	}else if(btn_set.isHold() && !menu_mode){
+		if(!menu_mode && !btn_reset.isPress()) outmgr.battery_request(true);
+	}else if(btn_reset_isHolded){											//Удержание кнопки ресет
+		if(!menu_mode && !btn_set.isPress()) datamgr.no_alarm = !datamgr.no_alarm;
+		if(menu_mode && !editing_mode){										//Если находимся в меню
+			datamgr.is_detected = true;
+			if(datamgr.menu_page == 0) {datamgr.page = 1; datamgr.do_alarm = false;}
+			else if(datamgr.menu_page == 6) datamgr.menu_page = 2;
+			else if(datamgr.menu_page == 7) datamgr.menu_page = 6;
+			else datamgr.menu_page = 0;
+			datamgr.cursor = 0;
+		}
+		if(editing_mode){
+			datamgr.is_detected = true;
+			datamgr.editing_mode = false;
+		}
+		if(!menu_mode && datamgr.counter_mode == 1){
+			datamgr.reset_activity_test();
+			datamgr.timer_remain = datamgr.timer_time;
+			datamgr.time_min = datamgr.time_min_old;
+		}
+		outmgr.update_request();
+	}else if(btn_reset.isClick() && !btn_reset_isHolded){					//Клик кнопки ресет
+		if(!menu_mode && !datamgr.do_alarm) datamgr.mute = !datamgr.mute;
+		if(!menu_mode && datamgr.do_alarm) datamgr.no_alarm = !datamgr.no_alarm;
+		if(menu_mode && !editing_mode && datamgr.cursor > 0) { datamgr.is_detected = true; datamgr.cursor--; }
+		if(editing_mode){
+			if(datamgr.menu_page == 2){
+				#if defined(UNIVERSAL_COUNTER)
+				if(datamgr.cursor == 1 && datamgr.editable > 0) datamgr.editable-=5;
+				if(datamgr.cursor == 2 && datamgr.editable > 0) datamgr.editable-=51;
+				if(datamgr.cursor == 3 && datamgr.editable > 0) datamgr.editable-=5;
+				if(datamgr.cursor == 4 && datamgr.editable > 0) datamgr.editable--;
+				if(datamgr.cursor == 5 && datamgr.editable > 30) datamgr.editable-=5;
+				#else
+				if(datamgr.cursor == 0 && datamgr.editable > 0) datamgr.editable-=5;
+				if(datamgr.cursor == 1 && datamgr.editable > 0) datamgr.editable-=51;
+				if(datamgr.cursor == 2 && datamgr.editable > 0) datamgr.editable-=5;
+				if(datamgr.cursor == 3 && datamgr.editable > 0) datamgr.editable--;
+				if(datamgr.cursor == 4 && datamgr.editable > 0) datamgr.editable-=5;
+				#endif
+			}else if(datamgr.menu_page == 4){
+				switch (datamgr.cursor){
+					case 0:{ if(datamgr.editable > 1) datamgr.editable--; }break;
+					case 1:{ if(datamgr.editable > 0) datamgr.editable--; }break;
+				}
+			}
+			#if defined(UNIVERSAL_COUNTER)
+			else if(datamgr.menu_page == 7){
+				switch (datamgr.cursor){
+					case 0:{ if(datamgr.editable > 1) datamgr.editable--; } break;
+					case 1:{ if(datamgr.editable > 1) datamgr.editable--; } break;
+				}
+			}
+			#endif
+		}
+		outmgr.update_request();
+	}else if(btn_set_isHolded){												//Удержание кнопки сет
+		if(datamgr.is_sleeping) sleep();
+		if(menu_mode && !editing_mode) {
+			datamgr.is_detected = true;
+			switch (datamgr.menu_page){
+				case 0:{
+					switch (datamgr.cursor){
+						case 0:{ datamgr.menu_page = 1; }break;
+						case 1:{ datamgr.menu_page = 2; }break;
+						case 2:{ datamgr.menu_page = 3; }break;
+						#if defined(CAN_SLEEP)
+						case 3:{ datamgr.menu_page = 5; }break;
+						#endif
+					}
+					datamgr.cursor = 0;
+				}break;
+				case 1:{
+					switch (datamgr.cursor){
+						case 0:{ datamgr.counter_mode = 0; datamgr.page = 1; }break;
+						case 1:{ datamgr.menu_page = 4; }break;
+						case 2:{ datamgr.counter_mode = 2; datamgr.page = 1; datamgr.rad_max = 0;
+						#if defined(DRAW_GRAPH)
+							for(int i = 0; i < 83; i++) datamgr.mass[i] = 0;
+						#endif
+						}break;
+					}
+					datamgr.cursor = 0;
+				}break;
+				case 2:{
+					switch (datamgr.cursor){
+						#if defined(UNIVERSAL_COUNTER)
+						case 0:{ datamgr.menu_page = 6; }break;
+						case 1:{ datamgr.editable = datamgr.ton_BUZZ; }break;
+						case 2:{ datamgr.editable = datamgr.backlight; }break;
+						case 3:{ datamgr.editable = datamgr.contrast; }break;
+						case 4:{ datamgr.editable = datamgr.save_dose_interval; }break;
+						case 5:{ datamgr.editable = datamgr.alarm_threshold; }break;
+						#else
+						case 0:{ datamgr.editable = datamgr.ton_BUZZ; }break;
+						case 1:{ datamgr.editable = datamgr.backlight; }break;
+						case 2:{ datamgr.editable = datamgr.contrast; }break;
+						case 3:{ datamgr.editable = datamgr.save_dose_interval; }break;
+						case 4:{ datamgr.editable = datamgr.alarm_threshold; }break;
+						#endif
+					}
+					#if defined(UNIVERSAL_COUNTER)
+					if(datamgr.cursor != 0) datamgr.editing_mode = true;
+					#else
+					datamgr.editing_mode = true;
+					#endif
+				}break;
+				case 3:{
+					switch (datamgr.cursor){								//Стереть данные
+						case 0:{ datamgr.reset_settings(); datamgr.menu_page = 0; }break;
+						case 1:{ datamgr.reset_dose(); datamgr.menu_page = 0; }break;
+						case 2:{ datamgr.reset_settings(); datamgr.reset_dose(); datamgr.menu_page = 0; }break;
+					}
+					datamgr.cursor = 0;
+				}break;
+				case 4:{
+					switch (datamgr.cursor){
+						case 0:{ datamgr.editable = datamgr.time_min; }break;
+						case 1:{ datamgr.editable = datamgr.means_times; }break;
+						case 2:{
+							datamgr.reset_activity_test();
+							datamgr.time_min_old = datamgr.time_min;
+							datamgr.timer_time = datamgr.time_min * 60;
+							datamgr.timer_remain = datamgr.timer_time;
+						}break;
+					}
+					if(datamgr.cursor != 2) datamgr.editing_mode = true;
+
+				}break;
+				case 5:{
+					switch (datamgr.cursor){								//Вообще это диалог выбора, но пока что это не он
+						case 0:{
+						#if defined(CAN_SLEEP)
+						sleep();
+						#endif
+						}break;
+						case 1:{ datamgr.menu_page = 0; }break;
+					}
+					datamgr.cursor = 0;
+				}break;
+				#if defined(UNIVERSAL_COUNTER)
+				case 6:{
+					switch (datamgr.cursor){
+						case 0:{ datamgr.menu_page = 2; datamgr.setup_sbm20(); }break;
+						case 1:{ datamgr.menu_page = 2; datamgr.setup_sbm19(); }break;
+						case 2:{ datamgr.menu_page = 2; datamgr.setup_beta(); }break;
+						case 3:{ datamgr.menu_page = 7; }break;
+					}
+					datamgr.cursor = 0;
+				}break;
+				case 7:{
+					switch (datamgr.cursor){
+						case 0:{ datamgr.editable = datamgr.GEIGER_TIME; }break;
+						case 1:{ datamgr.editable = datamgr.geiger_error; }break;
+					}
+					datamgr.editing_mode = true;
+				}break;
+				#endif
+			}
+		}
+		if(menu_mode && editing_mode){
+			datamgr.is_detected = true;
+			if(datamgr.menu_page == 4){
+				switch (datamgr.cursor){
+					case 0:{ datamgr.time_min = datamgr.editable; }break;
+					case 1:{ datamgr.means_times = datamgr.editable; }break;
+				}
+			}
+			#if defined(UNIVERSAL_COUNTER)
+			else if(datamgr.menu_page == 7){
+				switch (datamgr.cursor){
+					case 0:{ datamgr.save_time(); }break;
+					case 1:{ datamgr.save_error(); }break;
+				}
+			}
+			#endif
+			else{
+				switch (datamgr.cursor){
+					#if defined(UNIVERSAL_COUNTER)
+					case 1:{ datamgr.save_tone(); }break;
+					case 2:{ datamgr.save_bl(); }break;
+					case 3:{ datamgr.save_contrast(); }break;
+					case 4:{ datamgr.save_interval(); }break;
+					case 5:{ datamgr.save_alarm(); }break;
+					#else
+					case 0:{ datamgr.save_tone(); }break;
+					case 1:{ datamgr.save_bl(); }break;
+					case 2:{ datamgr.save_contrast(); }break;
+					case 3:{ datamgr.save_interval(); }break;
+					case 4:{ datamgr.save_alarm(); }break;
+					#endif
+				}
+			}
+			datamgr.editing_mode = false;
+		}
+		outmgr.update_request();
+	}else if(btn_set.isClick() && !btn_set_isHolded){					//Клик кнопки сет
+		if(!menu_mode && datamgr.counter_mode == 1 && !datamgr.next_step && datamgr.stop_timer){
+			datamgr.rad_max = datamgr.rad_back;
+			datamgr.rad_back = 0;
+			datamgr.next_step = true;
+			datamgr.stop_timer = false;
+			datamgr.do_alarm = false;
+			datamgr.time_min = datamgr.time_min_old;
+			datamgr.timer_remain = datamgr.timer_time;
+			datamgr.time_sec = 0;
+		}
+		if(!menu_mode && datamgr.counter_mode == 1 && datamgr.do_alarm && datamgr.next_step && datamgr.stop_timer){
+			datamgr.do_alarm = false;
+		}
+
+		if(!menu_mode && datamgr.counter_mode == 0){
+			datamgr.mean_mode = !datamgr.mean_mode;
+		}
+
+		if(menu_mode && !editing_mode){						//Сдвинуть курсор, если можно
+			datamgr.is_detected = true;
+			switch (datamgr.menu_page){
+				#if defined(CAN_SLEEP)
+				case 0:{ if(datamgr.cursor < 3) datamgr.cursor++; } break;
+				#else
+				case 0:{ if(datamgr.cursor < 2) datamgr.cursor++; } break;
+				#endif
+				case 1:{ if(datamgr.cursor < 2) datamgr.cursor++; } break;
+				#if defined(UNIVERSAL_COUNTER)
+				case 2:{ if(datamgr.cursor < 5) datamgr.cursor++; } break;
+				#else
+				case 2:{ if(datamgr.cursor < 2) datamgr.cursor++; } break;
+				#endif
+				case 3:{ if(datamgr.cursor < 2) datamgr.cursor++; } break;
+				case 4:{ if(datamgr.cursor < 2) datamgr.cursor++; } break;
+				#if defined(CAN_SLEEP)
+				case 5:{ if(datamgr.cursor < 1) datamgr.cursor++; } break;
+				#endif
+				#if defined(UNIVERSAL_COUNTER)
+				case 6:{ if(datamgr.cursor < 3) datamgr.cursor++; } break;
+				case 7:{ if(datamgr.cursor < 1) datamgr.cursor++; } break;
+				#endif
+			}
+		}
+		if(editing_mode){
+			if(datamgr.menu_page == 2){
+				#if defined(UNIVERSAL_COUNTER)
+				if(datamgr.cursor == 1 && datamgr.editable < 255) datamgr.editable+=5;
+				if(datamgr.cursor == 2 && datamgr.editable < 255) datamgr.editable+=51;
+				if(datamgr.cursor == 3 && datamgr.editable < 255) datamgr.editable+=5;
+				if(datamgr.cursor == 4 && datamgr.editable < 255) datamgr.editable++;
+				if(datamgr.cursor == 5 && datamgr.editable < 255) datamgr.editable+=5;
+				#else
+				if(datamgr.cursor == 0 && datamgr.editable < 255) datamgr.editable+=5;
+				if(datamgr.cursor == 1 && datamgr.editable < 255) datamgr.editable+=51;
+				if(datamgr.cursor == 2 && datamgr.editable < 255) datamgr.editable+=5;
+				if(datamgr.cursor == 3 && datamgr.editable < 255) datamgr.editable++;
+				if(datamgr.cursor == 4 && datamgr.editable < 255) datamgr.editable+5;
+				#endif
+			}else if(datamgr.menu_page == 4){
+				switch (datamgr.cursor){
+					case 0:{ datamgr.editable++; }break;
+					case 1:{ if(datamgr.editable < 1) datamgr.editable++; }break;
+				}
+			}
+			#if defined(UNIVERSAL_COUNTER)
+			else if(datamgr.menu_page == 7){
+				switch (datamgr.cursor){
+					case 0:{ if(datamgr.editable < 100) datamgr.editable++; } break;
+					case 1:{ if(datamgr.editable < 40) datamgr.editable++; } break;
+				}
+			}
+			#endif
+		}
+		outmgr.update_request();
+	}*/
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -128,11 +439,6 @@ int main(void)
 
   //if(error_detector == NO_ERROR){
 
-  //Enable timers
-	  HAL_TIM_Base_Start_IT(&htim1);
-	  //HAL_TIM_Base_Start_IT(&htim2);
-	  HAL_TIM_Base_Start_IT(&htim3);
-
 	  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
 	  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
 	  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
@@ -142,13 +448,23 @@ int main(void)
 	  HAL_ADCEx_Calibration_Start(&hadc2);
 	  HAL_ADC_Start_IT(&hadc2);
 
-	  pwm_transformer(128);
+	  //Enable timers
+	  HAL_TIM_Base_Start_IT(&htim1);
+	  //HAL_TIM_Base_Start_IT(&htim2);
+	  HAL_TIM_Base_Start_IT(&htim3);
 
   //}else{
 	  //Error_Handler();
   //}
 
-  __heapstats();
+  gbuttonInit(&btn_set, GPIOB, GPIO_PIN_4, HIGH_PULL, NORM_OPEN);
+  gbuttonInit(&btn_reset, GPIOB, GPIO_PIN_5, HIGH_PULL, NORM_OPEN);
+
+  setClickTimeout(&btn_reset, 100);
+  setClickTimeout(&btn_set, 100);
+  setTimeout(&btn_reset, 1000);
+  setTimeout(&btn_set, 1000);
+
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
 
   /* USER CODE END 2 */
@@ -157,13 +473,51 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	//if(error_detector != NO_ERROR) Error_Handler();
+	is_charging = !(bool)HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_11);
+
 	if(millis() - current_millis > 5000){
 		current_millis = millis();
 		adc_enable_reading();
 		current_battery_voltage = get_battery_voltage();
 		current_high_voltage = get_high_voltage();
-		HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+		//HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+	}
+
+	if((current_battery_voltage < BAT_ADC_MIN) && !is_low_voltage) is_low_voltage = true;
+	//if(is_low_voltage) low_battery_kill();
+
+	if(!is_charging){
+		if(get_high_voltage() < HV_ADC_REQ) { Transformer_pwm++; }
+		else { Transformer_pwm--; }
+		pwm_transformer(Transformer_pwm);
+		if((rad_back > Alarm_threshold) && !no_alarm && (counter_mode == 0)) { do_alarm = true; }
+		else { if(counter_mode == 0) do_alarm = false; }
+		if(!do_alarm) pwm_backlight(LCD_backlight);
+		if(!no_alarm) {
+			if(do_alarm){
+				if(millis()-alarm_timer > 300){
+					alarm_timer = millis();
+					pwm_tone(is_alarm ? 100 : 200);
+					pwm_backlight(is_alarm ? 204 : 0);
+					is_alarm = !is_alarm;
+				}
+			}
+		}
+
+		//if(get_battery_requet()) update_request();
+		//battery_request(false);
+		button_action();
+
+		if(counter_mode==0){
+			if(rad_dose - rad_dose_old > Save_dose_interval){
+				rad_dose_old = rad_dose;
+				Save_dose();
+				rad_max = rad_back;
+			}
+		}
+	}else{
+		//ADCManager::pwm_PD3(0);
+		//ADCManager::pwm_PB3(0);
 	}
   }
     /* USER CODE END WHILE */
@@ -202,8 +556,8 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV2;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
@@ -211,7 +565,7 @@ void SystemClock_Config(void)
     Error_Handler();
   }
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC|RCC_PERIPHCLK_USB;
-  PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV8;
+  PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV4;
   PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_PLL_DIV1_5;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
@@ -332,7 +686,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -370,7 +724,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -404,7 +758,7 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 7199;
+  htim1.Init.Prescaler = 3600-1;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim1.Init.Period = 9999;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -451,9 +805,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 7;
+  htim2.Init.Prescaler = 7-1;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 511;
+  htim2.Init.Period = 255;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -517,7 +871,7 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 72-1;
+  htim3.Init.Prescaler = 18000-1;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim3.Init.Period = 2-1;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -604,25 +958,19 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pins : GINT1_Pin GINT2_Pin */
   GPIO_InitStruct.Pin = GINT1_Pin|GINT2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : GINT3_Pin */
   GPIO_InitStruct.Pin = GINT3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GINT3_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : SPI1_RST_Pin */
-  GPIO_InitStruct.Pin = SPI1_RST_Pin;
+  /*Configure GPIO pins : SPI1_RST_Pin PB11 BSET_Pin BRSET_Pin */
+  GPIO_InitStruct.Pin = SPI1_RST_Pin|GPIO_PIN_11|BSET_Pin|BRSET_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(SPI1_RST_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : PB11 BSET_Pin BRSET_Pin */
-  GPIO_InitStruct.Pin = GPIO_PIN_11|BSET_Pin|BRSET_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/

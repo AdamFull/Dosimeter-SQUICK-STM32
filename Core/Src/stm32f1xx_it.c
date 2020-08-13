@@ -24,7 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stdbool.h"
-#include "data_manager.h"
+#include "managers/data_manager.h"
 /* USER CODE END Includes */
 
 /* External functions --------------------------------------------------------*/
@@ -52,7 +52,6 @@ volatile unsigned long millis_counter;
 extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc2;
 
-extern volatile unsigned long long micros_timer;
 extern volatile unsigned long millis_timer;
 
 extern volatile uint8_t mass[];
@@ -436,12 +435,11 @@ void TIM2_IRQHandler(void)
 void TIM3_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM3_IRQn 0 */
-  micros_timer++;
-  millis_counter++;
-  if(millis_counter > 200){
-	  millis_counter = 0;
+  //millis_counter++;
+  //if(millis_counter > 1000){
+	//  millis_counter = 0;
 	  millis_timer++;
-  }
+  //}
   /* USER CODE END TIM3_IRQn 0 */
   HAL_TIM_IRQHandler(&htim3);
   /* USER CODE BEGIN TIM3_IRQn 1 */

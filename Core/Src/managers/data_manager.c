@@ -6,7 +6,7 @@
  */
 
 
-#include "data_manager.h"
+#include "managers/data_manager.h"
 #include "stdint.h"
 #include "stdlib.h"
 #include "math.h"
@@ -28,6 +28,8 @@ uint16_t Buzzer_tone = 20;
 
 uint8_t Save_dose_interval = 20;
 
+uint8_t Alarm_threshold = 100;
+
 //-----------------------FLAGS-----------------------
 bool stop_timer = false;
 bool next_step = false;
@@ -48,8 +50,8 @@ bool is_mean_mode = false;
 
 uint8_t active_counters = 1;	//0 - external, 1 - first, 2 - second, 3 - first + second together
 uint16_t *rad_buff;
-uint32_t rad_dose_old;
-volatile uint32_t rad_sum, rad_back, rad_max, rad_dose;
+uint64_t rad_dose_old;
+volatile uint64_t rad_sum, rad_back, rad_max, rad_dose;
 uint8_t time_min_old;
 volatile uint8_t time_min = 1, time_sec = 1;
 volatile uint16_t timer_time, timer_remain;

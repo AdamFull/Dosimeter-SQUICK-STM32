@@ -6,7 +6,7 @@
  */
 
 
-#include <meaning_manager.h>
+#include <managers/meaning_manager.h>
 #include "stdbool.h"
 #include "stm32f1xx_hal.h"
 
