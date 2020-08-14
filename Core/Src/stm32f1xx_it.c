@@ -59,7 +59,7 @@ extern uint8_t page, active_counters, counter_mode, Real_geigertime;
 extern volatile uint8_t time_min, time_sec, x_p, stat_time;
 extern volatile uint16_t timer_remain;
 extern uint16_t *rad_buff;
-extern volatile uint32_t rad_sum, rad_back, rad_max, rad_dose, sum_old;
+extern volatile uint64_t rad_sum, rad_back, rad_max, rad_dose, sum_old;
 extern uint32_t *stat_buff;
 extern volatile bool is_detected;
 extern bool stop_timer, do_alarm, is_mean_mode;

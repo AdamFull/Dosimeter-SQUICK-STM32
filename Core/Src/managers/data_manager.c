@@ -13,6 +13,9 @@
 #include "fatfs.h"
 #include "string.h"
 
+#include "parser.h"
+
+
 //+++++++++++++++++++++VARIABLES+++++++++++++++++++++
 
 uint32_t *stat_buff;		//Buffer for contain current stat values
@@ -79,6 +82,8 @@ extern FRESULT fres;
 extern DWORD fre_clust;
 extern uint32_t total_memory, free_memory;
 
+char configdata[] = "GEIGER_ERROR = 28\nGEIGER_TIME = 21\nTRANSFORMER_PWM = 60\nLCD_CONTRAST = 60\nLCD_BACKLIGHT = 0\nBUZZER_TONE = 50\nACTIVE_COUNTERS = 1\nCUMULATIVE_DOSE = 0\nCOUNTER_MODE = 0\nSAVE_DOSE_INTERVAL = 20\nALARM_THRESHOLD = 100\n\0";
+
 void Initialize_variables(){
 
 	//uint8_t init
@@ -114,7 +119,7 @@ void Initialize_data(){
 	Initialize_variables();
 	is_memory_initialized = Init_memory();
 	if(is_memory_initialized){
-		Read_memory("config.ini");  //change to normal
+		Read_configuration();
 	}else{
 		error_detector = FLASH_MEMORY_ERROR;
 	}
@@ -192,7 +197,6 @@ bool Init_memory(){
 			mount_status = mount_status & space_status;
 		}
 	}
-
 	return mount_status == FR_OK;
 
 }
@@ -204,8 +208,10 @@ bool Setup_memory(){
 
 string Read_memory(string file_name){
 	FRESULT open_status = FR_DENIED;
+	uint32_t file_size;
 	if(free_memory < 1){
 		open_status = f_open(&USERFile, file_name, FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
+		file_size = f_size(&USERFile);
 		//f_read(fp, buff, btr, br);
 	}
 
@@ -224,6 +230,50 @@ bool Write_memory(string file_name, string file_data){
 }
 
 bool is_memory_valid(){
+	return 0;
+}
+
+bool Read_configuration(){
+	configfile config;
+
+	Read_memory("config.ini");
+
+	open_config(&config, configdata);
+	tokenize_config(&config);
+	Geiger_error = get_token_by_name(&config, "GEIGER_ERROR").token_value;
+	GEIGER_TIME = get_token_by_name(&config, "GEIGER_TIME").token_value;
+	Transformer_pwm = get_token_by_name(&config, "TRANSFORMER_PWM").token_value;
+	LCD_contrast = get_token_by_name(&config, "LCD_CONTRAST").token_value;
+	LCD_backlight = get_token_by_name(&config, "LCD_BACKLIGHT").token_value;
+	Buzzer_tone = get_token_by_name(&config, "BUZZER_TONE").token_value;
+	active_counters = get_token_by_name(&config, "ACTIVE_COUNTERS").token_value;
+	rad_sum = get_token_by_name(&config, "CUMULATIVE_DOSE").token_value;
+	counter_mode = get_token_by_name(&config, "COUNTER_MODE").token_value;
+	Save_dose_interval = get_token_by_name(&config, "SAVE_DOSE_INTERVAL").token_value;
+	Alarm_threshold = get_token_by_name(&config, "ALARM_THRESHOLD").token_value;
+	close_config(&config);
+	return 0;
+}
+
+bool Write_configuration(){
+	configfile config;
+
+	//Read_memory("config.ini");
+
+	open_config(&config, configdata);
+	tokenize_config(&config);
+	edit_token(&config, "GEIGER_ERROR", Geiger_error);
+	edit_token(&config, "GEIGER_TIME", GEIGER_TIME);
+	edit_token(&config, "TRANSFORMER_PWM", Transformer_pwm);
+	edit_token(&config, "LCD_CONTRAST", LCD_contrast);
+	edit_token(&config, "LCD_BACKLIGHT", LCD_backlight);
+	edit_token(&config, "BUZZER_TONE", Buzzer_tone);
+	edit_token(&config, "ACTIVE_COUNTERS", active_counters);
+	edit_token(&config, "CUMULATIVE_DOSE", rad_sum);
+	edit_token(&config, "COUNTER_MODE", counter_mode);
+	edit_token(&config, "SAVE_DOSE_INTERVAL", Save_dose_interval);
+	edit_token(&config, "ALARM_THRESHOLD", Alarm_threshold);
+	close_config(&config);
 	return 0;
 }
 

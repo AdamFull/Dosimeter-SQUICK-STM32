@@ -39,6 +39,10 @@ string Read_memory(string file_name);
 bool Write_memory(string file_name, string file_data);
 bool is_memory_valid();
 
+bool Read_configuration();
+bool Write_configuration();
+
+
 void Reset_dose();
 
 void Reset_activity_test();

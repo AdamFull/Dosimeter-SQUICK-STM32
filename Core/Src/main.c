@@ -66,8 +66,8 @@ extern DMGRESULT error_detector;
 
 extern uint16_t current_battery_voltage, current_high_voltage;
 extern bool is_charging, is_low_voltage, do_alarm, no_alarm, is_alarm;
-extern uint32_t rad_dose_old;
-extern volatile uint32_t rad_back, rad_max, rad_dose;
+extern uint64_t rad_dose_old;
+extern volatile uint64_t rad_back, rad_max, rad_dose;
 extern uint16_t Transformer_pwm, LCD_backlight;
 extern uint8_t Save_dose_interval, counter_mode, Alarm_threshold;
 
