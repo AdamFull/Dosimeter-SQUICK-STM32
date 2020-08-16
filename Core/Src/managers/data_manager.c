@@ -70,8 +70,6 @@ volatile uint8_t x_p = 0;
 
 float mean, std;
 
-uint8_t page = 0;
-
 DMGRESULT error_detector;
 
 extern uint8_t retUSER;
@@ -118,24 +116,32 @@ void Initialize_variables(){
 void Initialize_data(){
 	Initialize_variables();
 	is_memory_initialized = Init_memory();
+
+	printf("w25qxx memory init status: %s\n", is_memory_initialized ? "true" : "false");
+
 	if(is_memory_initialized){
 		Read_configuration();
+		Write_configuration();
 	}else{
 		error_detector = FLASH_MEMORY_ERROR;
 	}
 	Reset_activity_test();
 	Update_rad_buffer();
+
+	memset(configdata, 0, strlen(configdata));
 }
 
 void Update_rad_buffer(){
-	free(rad_buff);
-	free(stat_buff);
-	//Придумать как в любом режиме считать в одну переменную
 
 	if(active_counters == 3) Real_geigertime = GEIGER_TIME/2;
 	else Real_geigertime = GEIGER_TIME;
-	rad_buff = calloc(Real_geigertime, sizeof(uint16_t));
-	stat_buff = calloc(Real_geigertime, sizeof(uint32_t));
+	free(rad_buff);
+	rad_buff = (uint16_t*)calloc(Real_geigertime, sizeof(uint16_t));
+	free(stat_buff);
+	stat_buff = (uint32_t*)calloc(Real_geigertime, sizeof(uint32_t));
+
+	printf("Allocated %d bytes for rad buffer on address %p\n", Real_geigertime * sizeof(uint16_t), rad_buff);
+	printf("Allocated %d bytes for stats buffer on address %p\n", Real_geigertime * sizeof(uint32_t), stat_buff);
 
 	if(rad_buff != NULL && stat_buff != NULL){
 		rad_back = rad_max = 0;
@@ -273,6 +279,7 @@ bool Write_configuration(){
 	edit_token(&config, "COUNTER_MODE", counter_mode);
 	edit_token(&config, "SAVE_DOSE_INTERVAL", Save_dose_interval);
 	edit_token(&config, "ALARM_THRESHOLD", Alarm_threshold);
+	write_config(&config);
 	close_config(&config);
 	return 0;
 }

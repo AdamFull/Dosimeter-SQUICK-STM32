@@ -12,6 +12,7 @@
 
 typedef const char* string;
 
+
 typedef enum {
 	NO_ERROR,
 	FLASH_MEMORY_ERROR,

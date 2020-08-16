@@ -11,14 +11,16 @@
 #include "stdint.h"
 
 #define MAX_TOKENS 11
+#define MAX_TOKEN_SIZE 32
+#define MAX_FILE_SIZE 512
 
 typedef struct {
-	char *token_name;
+	char token_name[MAX_TOKEN_SIZE];
 	uint64_t token_value;
 } token;
 
 typedef struct {
-	char* filedata;
+	char filedata[MAX_FILE_SIZE];
 	token tokens[MAX_TOKENS];
 	uint8_t tokens_count;
 	uint16_t filelength;

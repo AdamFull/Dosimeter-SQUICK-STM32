@@ -10,6 +10,7 @@
 #include "stdbool.h"
 #include "stdlib.h"
 #include "ctype.h"
+#include "stdio.h"
 
 void append(char* s, char c)
 {
@@ -20,20 +21,19 @@ void append(char* s, char c)
 }
 
 void open_config(configfile *config, char* filedata){
-	config->filelength = strlen(filedata);
-	config->filedata = malloc(config->filelength);
-	memset(config->filedata, 0, config->filelength);
+	memset(config->filedata, 0, MAX_FILE_SIZE * sizeof(char));
 	strcpy(config->filedata, filedata);
 	config->tokens_count = 0;
+	config->filelength = strlen(config->filedata) * sizeof(char);
 }
 
 void tokenize_config(configfile *config){
 	uint16_t cursor = 0;
 	char *filedata = config->filedata;
 	uint16_t len = config->filelength;
-	char *parsed_name = malloc(32 * sizeof(char)), *parsed_num = malloc(32 * sizeof(char));
-	memset(parsed_name, 0, strlen(parsed_name));
-	memset(parsed_num, 0, strlen(parsed_num));
+	char parsed_name[32], parsed_num[32];
+	memset(parsed_name, 0, 32 * sizeof(char));
+	memset(parsed_num, 0, 32 * sizeof(char));
 	bool is_number_parsed = false;
 
 	if(filedata != NULL)
@@ -44,8 +44,8 @@ void tokenize_config(configfile *config){
 		if(is_number_parsed){
 			char * pEnd;
 			add_token(config, parsed_name, strtoull(parsed_num, &pEnd, 10));
-			memset(parsed_name, 0, strlen(parsed_name));
-			memset(parsed_num, 0, strlen(parsed_num));
+			memset(parsed_name, 0, strlen(parsed_name) * sizeof(char));
+			memset(parsed_num, 0, strlen(parsed_num) * sizeof(char));
 			is_number_parsed = false;
 		}
 
@@ -65,50 +65,30 @@ void tokenize_config(configfile *config){
 		}
 		cursor++;
 	}
-	free(parsed_name);
-	free(parsed_num);
-	free(filedata);
 }
 
 void write_config(configfile *config){
-	free(config->filedata);
 	//calculating new space
-	uint16_t new_size = 0;
-	for(unsigned i = 0; i < MAX_TOKENS; i++){
-		char buff[10];
-		new_size += 1 + strlen(config->tokens[i].token_name) * sizeof(char);
-		memcpy(buff, (char*)&config->tokens[i].token_value, 10);
-		new_size += 1 + strlen(buff) * sizeof(char);
-	}
+	memset(config->filedata, 0, MAX_FILE_SIZE * sizeof(char));
 
-	config->filedata = malloc(new_size);
-	memset(config->filedata, 0, new_size);
-	config->filelength = new_size;
+	char buffer[64];
 
 	for(unsigned i = 0; i < MAX_TOKENS; i++){
-		char buff[10];
-		strcat(config->filedata, config->tokens[i].token_name);
-		append(config->filedata, '=');
-		memcpy(buff, (char*)&config->tokens[i].token_value, 10);
-		strcat(config->filedata, buff);
-		append(config->filedata, '\n');
+		memset(buffer, 0, 64);
+		sprintf(buffer, "%s=%llu\n", config->tokens[i].token_name, (uint64_t)config->tokens[i].token_value);
+		strcat(config->filedata, buffer);
 	}
 
 }
 
 void close_config(configfile *config){
-	free(config->filedata);
-	for(unsigned i = 0; i < MAX_TOKENS; i++){
-		free(config->tokens[i].token_name);
-	}
+
 }
 
 void add_token(configfile *config, char *token_name, uint64_t token_value){
 	if(config->tokens_count < MAX_TOKENS){
 		token new_token;
-		uint8_t name_size = strlen(token_name);
-		new_token.token_name = malloc(name_size);
-		memset(new_token.token_name, 0, name_size);
+		memset(new_token.token_name, 0, MAX_TOKEN_SIZE);
 		strcpy(new_token.token_name, token_name);
 
 		new_token.token_value = token_value;
@@ -121,8 +101,7 @@ void edit_token(configfile *config, char *token_name, uint64_t token_value){
 	uint8_t token_counter = 0;
 	while(true){
 		if(token_counter > MAX_TOKENS) break;
-		token current_token = config->tokens[token_counter];
-		if(strcmp(current_token.token_name, token_name) == 0){
+		if(strcmp(config->tokens[token_counter].token_name, token_name) == 0){
 			config->tokens[token_counter].token_value = token_value;
 			break;
 		}else{
@@ -136,9 +115,8 @@ token get_token_by_name(configfile *config, char *token_name){
 	uint8_t token_counter = 0;
 	while(true){
 		if(token_counter > MAX_TOKENS) break;
-		token current_token = config->tokens[token_counter];
-		if(strcmp(current_token.token_name, token_name) == 0){
-			return current_token;
+		if(strcmp(config->tokens[token_counter].token_name, token_name) == 0){
+			return config->tokens[token_counter];
 		}else{
 			token_counter++;
 			continue;

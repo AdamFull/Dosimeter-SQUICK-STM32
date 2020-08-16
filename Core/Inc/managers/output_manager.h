@@ -8,6 +8,7 @@
 #ifndef INC_OUTPUT_MANAGER_H_
 #define INC_OUTPUT_MANAGER_H_
 
-
+void update_request();
+void battery_request(bool value);
 
 #endif /* INC_OUTPUT_MANAGER_H_ */
