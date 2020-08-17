@@ -7,11 +7,6 @@
 
 #include "stdint.h"
 #include "stdbool.h"
+#include "managers/data_manager.h"
 
-uint8_t page = 0;
-uint8_t counter = 0;
-uint8_t menu_page = 0;
-
-uint16_t editable = 0;
-
-bool editing_mode = false;
+extern geiger_ui GUI;

@@ -49,22 +49,16 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN PV */
 volatile unsigned long millis_counter;
 
-extern ADC_HandleTypeDef hadc1;
-extern ADC_HandleTypeDef hadc2;
 
 extern volatile unsigned long millis_timer;
-
-extern volatile uint8_t mass[];
-extern uint8_t page, active_counters, counter_mode, Real_geigertime;
-extern volatile uint8_t time_min, time_sec, x_p, stat_time;
-extern volatile uint16_t timer_remain;
-extern uint16_t *rad_buff;
-extern volatile uint64_t rad_sum, rad_back, rad_max, rad_dose, sum_old;
-extern uint32_t *stat_buff;
-extern volatile bool is_detected;
-extern bool stop_timer, do_alarm, is_mean_mode;
-extern float mean;
 extern uint16_t battery_adc_value, high_voltage_adc_value;
+
+extern geiger_flags GFLAGS;
+extern geiger_meaning GMEANING;
+extern geiger_work GWORK;
+extern geiger_mode GMODE;
+extern geiger_settings GSETTING;
+extern geiger_ui GUI;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -239,15 +233,15 @@ void SysTick_Handler(void)
 void EXTI1_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI1_IRQn 0 */
-	if(active_counters == 1 || active_counters == 3){
-		if(counter_mode==0){    //Режим поиска
-			if(rad_buff[0]!=65535) rad_buff[0]++;
-			if(++rad_sum>999999UL*3600/Real_geigertime) rad_sum=999999UL*3600/Real_geigertime; //общая сумма импульсов
-			if(page == 1 && !do_alarm){ is_detected = true; }
-		}else if(counter_mode==1){							//Режим измерения активности
-			if(!stop_timer) if(++rad_back>999999UL*3600/Real_geigertime) rad_back=999999UL*3600/Real_geigertime; //Сумма импульсов для режима измерения
-		}else if(counter_mode==2){							//Режим измерения активности
-			if(rad_buff[0]!=65535) rad_buff[0]++;
+	if(GSETTING.ACTIVE_COUNTERS == 1 || GSETTING.ACTIVE_COUNTERS == 3){
+		if(GMODE.counter_mode==0){    //Режим поиска
+			if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
+			if(++GWORK.rad_sum>999999UL*3600/GWORK.real_geigertime) GWORK.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
+			if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
+		}else if(GMODE.counter_mode==1){							//Режим измерения активности
+			if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
+		}else if(GMODE.counter_mode==2){							//Режим измерения активности
+			if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
 			//outmgr.update_request();
 		}
 		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
@@ -265,16 +259,16 @@ void EXTI1_IRQHandler(void)
 void EXTI2_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI2_IRQn 0 */
-	if(active_counters == 2 || active_counters == 3){
-		if(counter_mode==0){    //Режим поиска
-			if(rad_buff[0]!=65535) rad_buff[0]++;
-			if(++rad_sum>999999UL*3600/Real_geigertime) rad_sum=999999UL*3600/Real_geigertime; //общая сумма импульсов
-			if(page == 1 && !do_alarm){ is_detected = true; }
-		}else if(counter_mode==1){							//Режим измерения активности
-			if(!stop_timer) if(++rad_back>999999UL*3600/Real_geigertime) rad_back=999999UL*3600/Real_geigertime; //Сумма импульсов для режима измерения
-		}else if(counter_mode==2){							//Режим измерения активности
-			if(rad_buff[0]!=65535) rad_buff[0]++;
-				//outmgr.update_request();
+	if(GSETTING.ACTIVE_COUNTERS == 2 || GSETTING.ACTIVE_COUNTERS == 3){
+		if(GMODE.counter_mode==0){    //Режим поиска
+			if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
+			if(++GWORK.rad_sum>999999UL*3600/GWORK.real_geigertime) GWORK.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
+			if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
+		}else if(GMODE.counter_mode==1){							//Режим измерения активности
+			if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
+		}else if(GMODE.counter_mode==2){							//Режим измерения активности
+			if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
+			//outmgr.update_request();
 		}
 		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
 	}
@@ -291,15 +285,15 @@ void EXTI2_IRQHandler(void)
 void EXTI3_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI3_IRQn 0 */
-	if(active_counters == 0){
-		if(counter_mode==0){    //Режим поиска
-			if(rad_buff[0]!=65535) rad_buff[0]++;
-			if(++rad_sum>999999UL*3600/Real_geigertime) rad_sum=999999UL*3600/Real_geigertime; //общая сумма импульсов
-			if(page == 1 && !do_alarm){ is_detected = true; }
-		}else if(counter_mode==1){							//Режим измерения активности
-			if(!stop_timer) if(++rad_back>999999UL*3600/Real_geigertime) rad_back=999999UL*3600/Real_geigertime; //Сумма импульсов для режима измерения
-		}else if(counter_mode==2){							//Режим измерения активности
-			if(rad_buff[0]!=65535) rad_buff[0]++;
+	if(GSETTING.ACTIVE_COUNTERS == 0){
+		if(GMODE.counter_mode==0){    //Режим поиска
+			if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
+			if(++GWORK.rad_sum>999999UL*3600/GWORK.real_geigertime) GWORK.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
+			if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
+		}else if(GMODE.counter_mode==1){							//Режим измерения активности
+			if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
+		}else if(GMODE.counter_mode==2){							//Режим измерения активности
+			if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
 			//outmgr.update_request();
 		}
 		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
@@ -336,63 +330,63 @@ void TIM1_UP_IRQHandler(void)
 
 	uint32_t tmp_buff=0;
 
-	if(counter_mode == 0){
-		for(uint8_t i=0; i<Real_geigertime; i++) tmp_buff+=rad_buff[i]; //расчет фона мкР/ч
+	if(GMODE.counter_mode == 0){
+		for(uint8_t i=0; i<GWORK.real_geigertime; i++) tmp_buff+=GWORK.rad_buff[i]; //расчет фона мкР/ч
 		if(tmp_buff>999999) tmp_buff=999999; //переполнение
-		rad_back=tmp_buff;
-		stat_buff[stat_time] = rad_back; //Записываю текущее значение мкр/ч для расчёта погрешности
+		GWORK.rad_back=tmp_buff;
+		GWORK.stat_buff[GWORK.stat_time] = GWORK.rad_back; //Записываю текущее значение мкр/ч для расчёта погрешности
 
 		Calculate_std(); //- crashing
 
-		if(rad_back>rad_max) rad_max=rad_back; //фиксируем максимум фона
-		for(uint8_t k=Real_geigertime-1; k>0; k--) rad_buff[k]=rad_buff[k-1]; //перезапись массива
+		if(GWORK.rad_back>GWORK.rad_max) GWORK.rad_max=GWORK.rad_back; //фиксируем максимум фона
+		for(uint8_t k=GWORK.real_geigertime-1; k>0; k--) GWORK.rad_buff[k]=GWORK.rad_buff[k-1]; //перезапись массива
 
-		rad_buff[0]=0; //сбрасываем счетчик импульсов
+		GWORK.rad_buff[0]=0; //сбрасываем счетчик импульсов
 
-		if(is_mean_mode){
-			rad_back = (uint32_t)mean;
+		if(GFLAGS.is_mean_mode){
+			GWORK.rad_back = (uint32_t)GMEANING.mean;
 		}
 
-		if(stat_time > Real_geigertime) stat_time = 0; //Счётчик для расчёта статистической погрешности
-		else stat_time++;
+		if(GWORK.stat_time > GWORK.real_geigertime) GWORK.stat_time = 0; //Счётчик для расчёта статистической погрешности
+		else GWORK.stat_time++;
 
-		rad_dose=(rad_sum*Real_geigertime/3600); //расчитаем дозу
+		GWORK.rad_dose=(GWORK.rad_sum*GWORK.real_geigertime/3600); //расчитаем дозу
 
 		//mass[x_p]=map(rad_back, 0, rad_max < 40 ? 40 : rad_max, 0, 15);
-		if(x_p<83)x_p++;
-		if(x_p==83){
-			for(uint8_t i=0;i<83;i++)mass[i]=mass[i+1];
+		if(GUI.x_p<83)GUI.x_p++;
+		if(GUI.x_p==83){
+			for(uint8_t i=0;i<83;i++)GUI.mass[i]=GUI.mass[i+1];
 		}
 		//if(rad_max > 1) rad_max--;		//Потихоньку сбрасываем максиму
 
-	}else if(counter_mode == 1){
+	}else if(GMODE.counter_mode == 1){
 		//ТАймер для второго режима. Обратный отсчёт
 		//bool stop_timer = stop_timer;
-		if(!stop_timer){
-			if(time_min != 0 && time_sec == 0){
-				--time_min;
-				time_sec=60;
+		if(!GFLAGS.stop_timer){
+			if(GWORK.time_min != 0 && GWORK.time_sec == 0){
+				--GWORK.time_min;
+				GWORK.time_sec=60;
 			}
-			if(time_sec != 0){ --time_sec; }
-			timer_remain--;
-			if(timer_remain == 0){
-				stop_timer = true;
-				do_alarm = true;
+			if(GWORK.time_sec != 0){ --GWORK.time_sec; }
+			GWORK.timer_remain--;
+			if(GWORK.timer_remain == 0){
+				GFLAGS.stop_timer = true;
+				GFLAGS.do_alarm = true;
 			}
 		}
-	}else if(counter_mode == 2){
+	}else if(GMODE.counter_mode == 2){
 		//Секундный замер, сбрасываем счётчик каждую секунду
-		if(rad_max < rad_buff[0]) rad_max = rad_buff[0];
-		sum_old=rad_buff[0];
+		if(GWORK.rad_max < GWORK.rad_buff[0]) GWORK.rad_max = GWORK.rad_buff[0];
+		GWORK.sum_old=GWORK.rad_buff[0];
 
 		//mass[x_p]=map(rad_buff[0], 0, rad_max < 2 ? 2 : rad_max, 0, 15);
-	    if(x_p<83)x_p++;
-	    if(x_p==83){
-	        for(uint8_t i=0;i<83;i++)mass[i]=mass[i+1];
+	    if(GUI.x_p<83)GUI.x_p++;
+	    if(GUI.x_p==83){
+	        for(uint8_t i=0;i<83;i++)GUI.mass[i]=GUI.mass[i+1];
 	    }
 
-		if(rad_max > 1) rad_max--;		//Потихоньку сбрасываем максимум
-			rad_buff[0]=0; //сбрасываем счетчик импульсов
+		if(GWORK.rad_max > 1) GWORK.rad_max--;		//Потихоньку сбрасываем максимум
+			GWORK.rad_buff[0]=0; //сбрасываем счетчик импульсов
 		}
   /* USER CODE END TIM1_UP_IRQn 0 */
   HAL_TIM_IRQHandler(&htim1);

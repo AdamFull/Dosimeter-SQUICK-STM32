@@ -62,22 +62,18 @@ PCD_HandleTypeDef hpcd_USB_FS;
 
 /* USER CODE BEGIN PV */
 unsigned long current_millis;
-extern bool is_memory_initialized;
-extern DMGRESULT error_detector;
 
-extern uint16_t current_battery_voltage, current_high_voltage;
-extern bool is_charging, is_low_voltage, do_alarm, no_alarm, is_alarm;
-extern uint64_t rad_dose_old;
-extern volatile uint64_t rad_back, rad_max, rad_dose;
-extern uint16_t Transformer_pwm, LCD_backlight;
-extern uint8_t Save_dose_interval, counter_mode, Alarm_threshold;
-
-extern unsigned long alarm_timer;
 GyverButton btn_set;
 GyverButton btn_reset;
 
-extern bool menu_mode;
-extern uint8_t page;
+extern DMGRESULT error_detector;
+
+extern geiger_flags GFLAGS;
+extern geiger_meaning GMEANING;
+extern geiger_work GWORK;
+extern geiger_mode GMODE;
+extern geiger_settings GSETTING;
+extern geiger_ui GUI;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -114,8 +110,8 @@ void button_action(){
 	bool btn_reset_isHolded = isHolded(&btn_reset);
 	bool btn_set_isHolded = isHolded(&btn_set);
 
-	bool menu_mode = page == 2;
-	bool editing_mode = editing_mode;
+	bool menu_mode = GUI.page == 2;
+	bool editing_mode = GFLAGS.is_editing_mode;
 
 	/*if(isHold(&btn_reset) && isHold(&btn_set)){
 		if(!menu_mode){
@@ -418,33 +414,33 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	is_charging = !(bool)HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_11);
+	GFLAGS.is_charging = !(bool)HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_11);
 
 	if(millis() - current_millis > 5000){
 		current_millis = millis();
 		adc_enable_reading();
-		current_battery_voltage = get_battery_voltage();
-		current_high_voltage = get_high_voltage();
+		GMEANING.current_battery_voltage = get_battery_voltage();
+		GMEANING.current_high_voltage = get_high_voltage();
 		//HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
 	}
 
-	if((current_battery_voltage < BAT_ADC_MIN) && !is_low_voltage) is_low_voltage = true;
+	if((GMEANING.current_battery_voltage < BAT_ADC_MIN) && !GFLAGS.is_low_voltage) GFLAGS.is_low_voltage = true;
 	//if(is_low_voltage) low_battery_kill();
 
-	if(!is_charging){
-		if(get_high_voltage() < HV_ADC_REQ) { Transformer_pwm++; }
-		else { Transformer_pwm--; }
-		pwm_transformer(Transformer_pwm);
-		if((rad_back > Alarm_threshold) && !no_alarm && (counter_mode == 0)) { do_alarm = true; }
-		else { if(counter_mode == 0) do_alarm = false; }
-		if(!do_alarm) pwm_backlight(LCD_backlight);
-		if(!no_alarm) {
-			if(do_alarm){
-				if(millis()-alarm_timer > 300){
-					alarm_timer = millis();
-					pwm_tone(is_alarm ? 100 : 200);
-					pwm_backlight(is_alarm ? 204 : 0);
-					is_alarm = !is_alarm;
+	if(!GFLAGS.is_charging){
+		if(get_high_voltage() < HV_ADC_REQ) { GWORK.transformer_pwm++; }
+		else { GWORK.transformer_pwm--; }
+		pwm_transformer(GWORK.transformer_pwm);
+		if((GWORK.rad_back > GSETTING.ALARM_THRESHOLD) && !GFLAGS.no_alarm && (GMODE.counter_mode == 0)) { GFLAGS.do_alarm = true; }
+		else { if(GMODE.counter_mode == 0) GFLAGS.do_alarm = false; }
+		if(!GFLAGS.do_alarm) pwm_backlight(GSETTING.LCD_BACKLIGHT);
+		if(!GFLAGS.no_alarm) {
+			if(GFLAGS.do_alarm){
+				if(millis()-GWORK.alarm_timer > 300){
+					GWORK.alarm_timer = millis();
+					pwm_tone(GFLAGS.is_alarm ? 100 : 200);
+					pwm_backlight(GFLAGS.is_alarm ? 204 : 0);
+					GFLAGS.is_alarm = !GFLAGS.is_alarm;
 				}
 			}
 		}
@@ -453,11 +449,11 @@ int main(void)
 		//battery_request(false);
 		button_action();
 
-		if(counter_mode==0){
-			if(rad_dose - rad_dose_old > Save_dose_interval){
-				rad_dose_old = rad_dose;
+		if(GMODE.counter_mode==0){
+			if(GWORK.rad_dose - GWORK.rad_dose_old > GSETTING.SAVE_DOSE_INTERVAL){
+				GWORK.rad_dose_old = GWORK.rad_dose;
 				Save_dose();
-				rad_max = rad_back;
+				GWORK.rad_max = GWORK.rad_back;
 			}
 		}
 	}else{
