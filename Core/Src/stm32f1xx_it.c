@@ -25,6 +25,7 @@
 /* USER CODE BEGIN Includes */
 #include "stdbool.h"
 #include "managers/data_manager.h"
+#include "util.h"
 /* USER CODE END Includes */
 
 /* External functions --------------------------------------------------------*/
@@ -242,7 +243,7 @@ void EXTI1_IRQHandler(void)
 			if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
 		}else if(GMODE.counter_mode==2){							//Режим измерения активности
 			if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-			//outmgr.update_request();
+			GUI.update_required = true;
 		}
 		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
 	}
@@ -268,7 +269,7 @@ void EXTI2_IRQHandler(void)
 			if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
 		}else if(GMODE.counter_mode==2){							//Режим измерения активности
 			if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-			//outmgr.update_request();
+			GUI.update_required = true;
 		}
 		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
 	}
@@ -294,7 +295,7 @@ void EXTI3_IRQHandler(void)
 			if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
 		}else if(GMODE.counter_mode==2){							//Режим измерения активности
 			if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-			//outmgr.update_request();
+			GUI.update_required = true;
 		}
 		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
 	}
@@ -352,12 +353,12 @@ void TIM1_UP_IRQHandler(void)
 
 		GWORK.rad_dose=(GWORK.rad_sum*GWORK.real_geigertime/3600); //расчитаем дозу
 
-		//mass[x_p]=map(rad_back, 0, rad_max < 40 ? 40 : rad_max, 0, 15);
-		if(GUI.x_p<83)GUI.x_p++;
-		if(GUI.x_p==83){
-			for(uint8_t i=0;i<83;i++)GUI.mass[i]=GUI.mass[i+1];
+		GUI.mass[GUI.x_p]=map(GWORK.rad_back, 0, GWORK.rad_max < 40 ? 40 : GWORK.rad_max, 0, 19);
+		if(GUI.x_p<95)GUI.x_p++;
+		if(GUI.x_p==95){
+			for(uint8_t i=0;i<95;i++)GUI.mass[i]=GUI.mass[i+1];
 		}
-		//if(rad_max > 1) rad_max--;		//Потихоньку сбрасываем максиму
+		if(GWORK.rad_max > 1) GWORK.rad_max--;		//Потихоньку сбрасываем максиму
 
 	}else if(GMODE.counter_mode == 1){
 		//ТАймер для второго режима. Обратный отсчёт
@@ -379,10 +380,10 @@ void TIM1_UP_IRQHandler(void)
 		if(GWORK.rad_max < GWORK.rad_buff[0]) GWORK.rad_max = GWORK.rad_buff[0];
 		GWORK.sum_old=GWORK.rad_buff[0];
 
-		//mass[x_p]=map(rad_buff[0], 0, rad_max < 2 ? 2 : rad_max, 0, 15);
-	    if(GUI.x_p<83)GUI.x_p++;
-	    if(GUI.x_p==83){
-	        for(uint8_t i=0;i<83;i++)GUI.mass[i]=GUI.mass[i+1];
+		GUI.mass[GUI.x_p]=map(GWORK.rad_buff[0], 0, GWORK.rad_max < 40 ? 40 : GWORK.rad_max, 0, 19);
+	    if(GUI.x_p<95)GUI.x_p++;
+	    if(GUI.x_p==95){
+	        for(uint8_t i=0;i<95;i++)GUI.mass[i]=GUI.mass[i+1];
 	    }
 
 		if(GWORK.rad_max > 1) GWORK.rad_max--;		//Потихоньку сбрасываем максимум
@@ -391,7 +392,7 @@ void TIM1_UP_IRQHandler(void)
   /* USER CODE END TIM1_UP_IRQn 0 */
   HAL_TIM_IRQHandler(&htim1);
   /* USER CODE BEGIN TIM1_UP_IRQn 1 */
-
+  GUI.update_required = true;
   /* USER CODE END TIM1_UP_IRQn 1 */
 }
 

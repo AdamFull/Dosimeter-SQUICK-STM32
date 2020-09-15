@@ -20,7 +20,7 @@ typedef struct {
 	uint16_t GEIGER_VOLTAGE;
 
 	uint8_t LCD_CONTRAST;
-	uint16_t LCD_BACKLIGHT;
+	bool LCD_BACKLIGHT;
 
 	uint16_t BUZZER_TONE;
 
@@ -34,7 +34,7 @@ typedef struct {
 	uint8_t time_min_old;
 	volatile uint8_t stat_time;
 	volatile uint8_t time_min, time_sec;
-	volatile uint8_t sum_old;
+	uint16_t sum_old;
 
 	uint16_t real_geigertime;
 	uint16_t transformer_pwm;
@@ -66,8 +66,11 @@ typedef struct {
 	uint8_t menu_page;
 	uint8_t cursor;
 	uint16_t editable;
+	bool editable_bool;
 
-	volatile uint8_t mass[84];
+	bool update_required;
+
+	uint8_t mass[96];
 	volatile uint8_t x_p;
 } geiger_ui;
 

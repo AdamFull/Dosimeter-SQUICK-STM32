@@ -6,31 +6,15 @@
  */
 
 #include "util.h"
-#include "stm32f1xx.h"
 
 volatile unsigned long millis_timer;
 
-#define STACK_CANARY_WORD (0xCACACACAUL)
-
-/*void fill_stack(){
-	volatile unsigned *top, *start;
-	__asm__ volatile ("mov %[top], sp" : [top] "=r" (top) : : );
-	start = &_ebss;
-	while (start < top) {
-	    *(start++) = STACK_CANARY_WORD;
-	}
+float mapfloat(float x, float in_min, float in_max, float out_min, float out_max){
+	return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-unsigned check_stack_size(void) {
-
-    unsigned *addr = &_ebss;
-
-
-    while ((addr < &_stack) && (*addr == STACK_CANARY_WORD)) {
-        addr++;
-    }
-
-    return ((unsigned)&_stack - (unsigned)addr);
-}*/
+long map(long x, long in_min, long in_max, long out_min, long out_max){
+	return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
 
 unsigned long millis(){ return millis_timer; }

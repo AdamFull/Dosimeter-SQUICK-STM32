@@ -1,10 +1,14 @@
 #include "libs/LCD_1202.h"
 #include "libs/GFX_font.h"
 #include "stdlib.h"
+#include "string.h"
 
 uint8_t _LCD_RAM[LCD_X*LCD_String]; // Память нашего LCD
 
 static LCD_CONFIG lcd_config;
+
+uint8_t textsize = 1, textcolor = 1, textbgcolor = 0;
+uint8_t cursor_x = 0, cursor_y = 0;
 
 uint8_t getCommand(uint8_t cmd, uint8_t arg, uint8_t mask){
 	return (cmd | (arg & mask));
@@ -12,6 +16,10 @@ uint8_t getCommand(uint8_t cmd, uint8_t arg, uint8_t mask){
 
 uint8_t getComCmd(uint8_t arg, uint8_t mask){
 	return (arg & mask);
+}
+
+const char *toString(uint32_t value, uint16_t size){
+	char *buf = malloc(sizeof(char) * size);
 }
 
 // Отправляем байт данных дисплею
@@ -134,45 +142,62 @@ void LCD_FillScreen(uint8_t color) {
 }
 
 // Нарисовать букву
-void LCD_DrawChar(uint8_t x, uint8_t y, uint8_t color, unsigned char c) {
-  if((x >= LCD_X) ||(y >= LCD_Y) || ((x + 4) < 0) || ((y + 7) < 0)) return;
-  if(c<128)            c = c-32;
-  if(c>=144 && c<=175) c = c-48;
-  if(c>=128 && c<=143) c = c+16;
-  if(c>=176 && c<=191) c = c-48;
-  if(c>191)  return;
-  for (uint8_t i=0; i<6; i++ ) {
-    uint8_t line;
-    if (i == 5) {line = 0x00;}
-    else {line = font[(c*5)+i];
-    for (uint8_t j = 0; j<8; j++)
+void LCD_DrawChar(uint8_t x, uint8_t y, uint8_t color, uint8_t bg, uint8_t size, unsigned char c) {
+	if((x >= LCD_X) ||(y >= LCD_Y) || ((x + 4) < 0) || ((y + 7) < 0)) return;
+	if(c<128)            c = c-32;
+	if(c>=144 && c<=175) c = c-48;
+	if(c>=128 && c<=143) c = c+16;
+	if(c>=176 && c<=191) c = c-48;
+	if(c>191)  return;
+	for (uint8_t i=0; i<6; i++ ) {
+		uint8_t line;
+		if (i == 5) {line = 0x00;}
+		else {
+			line = font[(c*5)+i];
+			for (uint8_t j = 0; j<8; j++)
 			{
-				if (line & 0x01) {LCD_DrawPixel(x+i, y+j, color);}
-				else {LCD_DrawPixel(x+i, y+j, !color);};
+				if (line & 0x01) {
+					if(size == 1){
+						LCD_DrawPixel(x+i, y+j, color);
+					}else{
+						LCD_FillRect(x+(i*size), y+(j*size), size, size, color);
+					}
+				}else if(bg != color){
+					if(size == 1){
+						LCD_DrawPixel(x+i, y+j, bg);
+					}else{
+						LCD_FillRect(x+(i*size), y+(j*size), size, size, bg);
+					}
+				}
+				//cursor_x += textsize*6;
 				line >>= 1;
 			}
 		}
-  }
+	}
 }
 
 // Вывод строки
-void LCD_print(uint8_t x, uint8_t y, uint8_t color, char *str) {
+void LCD_print(const char *str) {
   unsigned char type = *str;
-  if(type>=128) x=x-3;
+  if(type>=128) cursor_x=cursor_x-3;
   while(*str){
-    LCD_DrawChar(x, y, color, *str++);
+    LCD_DrawChar(cursor_x, cursor_y, textcolor, textbgcolor, textsize, *str++);
     unsigned char type = *str;
-    if (type>=128) {x=x+3;}
-    else {x=x+6;};
+    if (type>=128) {cursor_x=cursor_x+textsize*3;}
+    else {cursor_x=cursor_x+textsize*5;};
   }
 }
 
 // Вывод числовых значений
-void LCD_write(uint8_t x, uint8_t y, uint8_t color, float num){
-  char c[10];
-//	sprintf(c, "text %f\n", num);
-	//sprintf(c, "%5.2f", num);
-  LCD_print(x, y, color, c);
+void LCD_write(int num, bool as_float){
+  char c[32];
+  if(!as_float){
+
+  }else{
+
+  }
+  sprintf(c, "%d", num);
+  LCD_print(c);
 }
 
 // Вывод картинки
@@ -208,9 +233,24 @@ void LCD_SetInvert(bool value){
 	LCD_SendByte(LCD_C, getCommand(STE2007_CMD_DPYREV, invert_byte, STE2007_MASK_DPYREV));
 }
 
+void LCD_SetCharSize(uint8_t size){
+	textsize = (size > 0) ? size : 1;
+}
+
+void LCD_SetTextColor(uint8_t c, uint8_t b){
+	textcolor   = c;
+	textbgcolor = b;
+}
+
+void LCD_SetCursor(uint8_t x, uint8_t y){
+	cursor_x = x;
+	cursor_y = y;
+}
+
 // Инициализируем дисплей
-void LCD_Init(void) {
+void LCD_Init(LCD_CONFIG config) {
   // Инициализация дисплея
+	lcd_config = config;
 	HAL_GPIO_WritePin(lcd_config.RESPORT, lcd_config.RESPIN, GPIO_PIN_RESET); // Активируем ресет
 	HAL_Delay(5);
 	HAL_GPIO_WritePin(lcd_config.RESPORT, lcd_config.RESPIN, GPIO_PIN_SET);   // Деактивируем ресет

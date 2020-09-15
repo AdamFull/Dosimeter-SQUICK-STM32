@@ -274,9 +274,9 @@ void Reset_activity_test(){
 	if(GMODE.means_times == 0) GFLAGS.next_step = true;
 	else GFLAGS.next_step = false;
 	GWORK.time_sec = 0;
-	//menu_page = 0;
+	GUI.menu_page = 0;
 	GMODE.counter_mode = 1;
-	//page = 1;
+	GUI.page = 1;
 }
 
 void Calculate_std(){

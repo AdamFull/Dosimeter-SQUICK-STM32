@@ -27,8 +27,10 @@
 #include "stdio.h"
 #include "util.h"
 #include <managers/meaning_manager.h>
+#include "managers/output_manager.h"
 #include "managers/data_manager.h"
 #include "libs/GyverButton_stm32.h"
+#include "libs/LCD_1202.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -49,7 +51,6 @@
 ADC_HandleTypeDef hadc1;
 ADC_HandleTypeDef hadc2;
 
-SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi2;
 
 TIM_HandleTypeDef htim1;
@@ -74,6 +75,8 @@ extern geiger_work GWORK;
 extern geiger_mode GMODE;
 extern geiger_settings GSETTING;
 extern geiger_ui GUI;
+
+LCD_CONFIG lcd_config_g;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -84,7 +87,6 @@ static void MX_ADC2_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
-static void MX_SPI1_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_USB_PCD_Init(void);
@@ -111,228 +113,228 @@ void button_action(){
 	bool btn_set_isHolded = isHolded(&btn_set);
 
 	bool menu_mode = GUI.page == 2;
-	bool editing_mode = GFLAGS.is_editing_mode;
 
-	/*if(isHold(&btn_reset) && isHold(&btn_set)){
+	if(isHold(&btn_reset) && isHold(&btn_set)){
 		if(!menu_mode){
-			page = 2;
-			menu_page = 0;
-			editing_mode = false;
+			GUI.page = 2;
+			GUI.menu_page = 0;
+			GFLAGS.is_editing_mode = false;
 		}else{
-			editing_mode = false;
-			page = 1;
+			GFLAGS.is_editing_mode = false;
+			GUI.page = 1;
 		}
 		//update_request();
 		resetStates(&btn_reset);
 		resetStates(&btn_set);
 	}else if(isHold(&btn_set) && !menu_mode){
-		if(!menu_mode && !isPress(btn_reset)) battery_request(true);
+		//if(!menu_mode && !isPress(btn_reset)) battery_request(true);
 	}else if(btn_reset_isHolded){											//Удержание кнопки ресет
-		if(!menu_mode && !isPress(&btn_set)) no_alarm = !no_alarm;
-		if(menu_mode && !editing_mode){										//Если находимся в меню
-			is_detected = true;
-			if(menu_page == 0) {page = 1; do_alarm = false;}
-			else if(menu_page == 6) menu_page = 2;
-			else if(menu_page == 7) menu_page = 6;
-			else menu_page = 0;
-			cursor = 0;
+		if(!menu_mode && !isPress(&btn_set)) GFLAGS.no_alarm = !GFLAGS.no_alarm;
+		if(menu_mode && !GFLAGS.is_editing_mode){										//Если находимся в меню
+			GFLAGS.is_detected = true;
+			if(GUI.menu_page == 0) {GUI.page = 1; GFLAGS.do_alarm = false;}
+			else if(GUI.menu_page == 6) GUI.menu_page = 2;
+			else GUI.menu_page = 0;
+			GUI.cursor = 0;
 		}
-		if(editing_mode){
-			is_detected = true;
-			editing_mode = false;
+		if(GFLAGS.is_editing_mode){
+			GFLAGS.is_detected = true;
+			GFLAGS.is_editing_mode = false;
 		}
-		if(!menu_mode && counter_mode == 1){
+		if(!menu_mode && GMODE.counter_mode == 1){
 			Reset_activity_test();
-			timer_remain = timer_time;
-			time_min = time_min_old;
+			GWORK.timer_remain = GWORK.timer_time;
+			GWORK.time_min = GWORK.time_min_old;
 		}
 		update_request();
 	}else if(isClick(&btn_reset) && !btn_reset_isHolded){					//Клик кнопки ресет
-		if(!menu_mode && !do_alarm) mute = !mute;
-		if(!menu_mode && do_alarm) no_alarm = !no_alarm;
-		if(menu_mode && !editing_mode && cursor > 0) { is_detected = true; cursor--; }
-		if(editing_mode){
-			if(menu_page == 2){
-				if(cursor == 1 && editable > 0) editable-=5;
-				if(cursor == 2 && editable > 0) editable-=51;
-				if(cursor == 3 && editable > 0) editable-=5;
-				if(cursor == 4 && editable > 0) editable--;
-				if(cursor == 5 && editable > 30) editable-=5;
-			}else if(menu_page == 4){
-				switch (cursor){
-					case 0:{ if(editable > 1) editable--; }break;
-					case 1:{ if(editable > 0) editable--; }break;
+		if(!menu_mode && !GFLAGS.do_alarm) GFLAGS.is_muted = !GFLAGS.is_muted;
+		if(!menu_mode && GFLAGS.do_alarm) GFLAGS.no_alarm = !GFLAGS.no_alarm;
+		if(menu_mode && !GFLAGS.is_editing_mode && GUI.cursor > 0) { GFLAGS.is_detected = true; GUI.cursor--; }
+		if(GFLAGS.is_editing_mode){
+			if(GUI.menu_page == 2){
+
+			}else if(GUI.menu_page == 4){
+				switch (GUI.cursor){
+					case 0:{ if(GUI.editable > 1) GUI.editable--; }break;
+					case 1:{ if(GUI.editable > 0) GUI.editable--; }break;
 				}
 			}
-			else if(menu_page == 7){
-				switch (cursor){
-					case 0:{ if(editable > 1) editable--; } break;
-					case 1:{ if(editable > 1) editable--; } break;
+			else if(GUI.menu_page == 6){
+				switch (GUI.cursor){
+					case 0:{ if(GUI.editable > 1) GUI.editable--; } break;
+					case 1:{ if(GUI.editable > 1) GUI.editable--; } break;
+				}
+			}else if(GUI.menu_page == 7){
+				switch (GUI.cursor){
+					case 0:{ if(GUI.editable > 5) GUI.editable--; } break;
+					case 1:{ if(GUI.editable > 5) GUI.editable-=5; } break;
+					case 2:{ if(GUI.editable > 5) GUI.editable-=5; } break;
 				}
 			}
 		}
 		update_request();
 	}else if(btn_set_isHolded){												//Удержание кнопки сет
-		if(is_sleeping) sleep();
-		if(menu_mode && !editing_mode) {
-			is_detected = true;
-			switch (menu_page){
+		if(menu_mode && GFLAGS.is_editing_mode){
+			GFLAGS.is_detected = true;
+			if(GUI.menu_page == 4){
+				switch (GUI.cursor){
+					case 0:{ GWORK.time_min = GUI.editable; }break;
+					case 1:{ GMODE.means_times = GUI.editable; }break;
+				}
+			}else if(GUI.menu_page == 6){
+				switch (GUI.cursor){
+					case 0:{ /*Save_time();*/ }break;
+					case 1:{ /*Save_error();*/ }break;
+				}
+			}else{
+				switch (GUI.cursor){
+					case 1:{ /*Save_tone();*/ }break;
+					case 2:{ /*Save_bl();*/ }break;
+					case 3:{ /*Save_contrast();*/ }break;
+					case 4:{ /*Save_interval();*/ }break;
+					case 5:{ /*Save_alarm();*/ }break;
+				}
+			}
+			GFLAGS.is_editing_mode = false;
+			return;
+		}
+
+		//if(is_sleeping) sleep();
+		if(menu_mode && !GFLAGS.is_editing_mode) {
+			GFLAGS.is_detected = true;
+			switch (GUI.menu_page){
 				case 0:{
-					switch (cursor){
-						case 0:{ menu_page = 1; }break;
-						case 1:{ menu_page = 2; }break;
-						case 2:{ menu_page = 3; }break;
-						case 3:{ menu_page = 5; }break;
+					switch (GUI.cursor){
+						case 0:{ GUI.menu_page = 1; }break;
+						case 1:{ GUI.menu_page = 2; }break;
+						case 2:{ GUI.menu_page = 3; }break;
+						case 3:{ GUI.menu_page = 5; }break;
 					}
-					cursor = 0;
+					GUI.cursor = 0;
 				}break;
 				case 1:{
-					switch (cursor){
-						case 0:{ counter_mode = 0; page = 1; }break;
-						case 1:{ menu_page = 4; }break;
-						case 2:{ counter_mode = 2; page = 1; rad_max = 0;
-						for(int i = 0; i < 83; i++) datamgr.mass[i] = 0;
+					switch (GUI.cursor){
+						case 0:{ GMODE.counter_mode = 0; GUI.page = 1; }break;
+						case 1:{ GUI.menu_page = 4; }break;
+						case 2:{ GMODE.counter_mode = 2; GUI.page = 1; GWORK.rad_max = 0;
+						for(int i = 0; i < LCD_X; i++) GUI.mass[i] = 0;
 						}break;
 					}
-					cursor = 0;
+					GUI.cursor = 0;
 				}break;
 				case 2:{
-					switch (cursor){
-						case 0:{ menu_page = 6; }break;
-						case 1:{ editable = ton_BUZZ; }break;
-						case 2:{ editable = backlight; }break;
-						case 3:{ editable = contrast; }break;
-						case 4:{ editable = save_dose_interval; }break;
-						case 5:{ editable = alarm_threshold; }break;
+					switch (GUI.cursor){
+						case 0:{ GUI.menu_page = 6; }break;
+						case 1:{ GUI.menu_page = 7; }break;
+						case 2:{ GFLAGS.is_muted = !GFLAGS.is_muted; }break;
+						case 3:{ GSETTING.LCD_BACKLIGHT = !GSETTING.LCD_BACKLIGHT; }break;
 					}
-					if(cursor != 0) editing_mode = true;
+					return;
 				}break;
 				case 3:{
-					switch (cursor){								//Стереть данные
-						case 0:{ reset_settings(); menu_page = 0; }break;
-						case 1:{ reset_dose(); menu_page = 0; }break;
-						case 2:{ reset_settings(); reset_dose(); menu_page = 0; }break;
+					switch (GUI.cursor){								//Стереть данные
+						case 0:{ /*reset_settings(); */GUI.menu_page = 0; }break;
+						case 1:{ /*reset_dose(); */GUI.menu_page = 0; }break;
+						case 2:{ /*reset_settings(); reset_dose(); */GUI.menu_page = 0; }break;
 					}
-					cursor = 0;
+					GUI.cursor = 0;
 				}break;
 				case 4:{
-					switch (cursor){
-						case 0:{ editable = time_min; }break;
-						case 1:{ editable = means_times; }break;
+					switch (GUI.cursor){
+						case 0:{ GUI.editable = GWORK.time_min; }break;
+						case 1:{ GUI.editable = GMODE.means_times; }break;
 						case 2:{
 							Reset_activity_test();
-							time_min_old = time_min;
-							timer_time = time_min * 60;
-							timer_remain = timer_time;
+							GWORK.time_min_old = GWORK.time_min;
+							GWORK.timer_time = GWORK.time_min * 60;
+							GWORK.timer_remain = GWORK.timer_time;
 						}break;
 					}
-					if(cursor != 2) editing_mode = true;
+					if(GUI.cursor != 2) GFLAGS.is_editing_mode = true;
 
 				}break;
 				case 5:{
-					switch (cursor){								//Вообще это диалог выбора, но пока что это не он
+					switch (GUI.cursor){								//Вообще это диалог выбора, но пока что это не он
 						case 0:{
-						sleep();
+						//sleep();
 						}break;
-						case 1:{ menu_page = 0; }break;
+						case 1:{ GUI.menu_page = 0; }break;
 					}
-					cursor = 0;
+					GUI.cursor = 0;
 				}break;
 				case 6:{
-					switch (cursor){
-						case 0:{ menu_page = 7; }break;
+					switch (GUI.cursor){
+						case 0:{ GUI.editable = GSETTING.GEIGER_TIME; }break;
+						case 1:{ GUI.editable = GSETTING.GEIGER_ERROR; }break;
 					}
-					cursor = 0;
+					GFLAGS.is_editing_mode = true;
 				}break;
 				case 7:{
-					switch (cursor){
-						case 0:{ editable = GEIGER_TIME; }break;
-						case 1:{ editable = geiger_error; }break;
+					switch(GUI.cursor){
+						case 0:{ GUI.editable = GSETTING.LCD_CONTRAST; }break;
+						case 1:{ GUI.editable = GSETTING.SAVE_DOSE_INTERVAL; }break;
+						case 2:{ GUI.editable = GSETTING.ALARM_THRESHOLD; }break;
 					}
-					editing_mode = true;
-				}break;
-			}
-		}
-		if(menu_mode && editing_mode){
-			is_detected = true;
-			if(menu_page == 4){
-				switch (cursor){
-					case 0:{ time_min = editable; }break;
-					case 1:{ means_times = editable; }break;
-				}
-			}
-			else if(menu_page == 7){
-				switch (cursor){
-					case 0:{ Save_time(); }break;
-					case 1:{ Save_error(); }break;
-				}
-			}
-			else{
-				switch (cursor){
-					case 1:{ Save_tone(); }break;
-					case 2:{ Save_bl(); }break;
-					case 3:{ Save_contrast(); }break;
-					case 4:{ Save_interval(); }break;
-					case 5:{ Save_alarm(); }break;
-				}
-			}
-			editing_mode = false;
-		}
-		update_request();
-	}else if(btn_set.isClick() && !btn_set_isHolded){					//Клик кнопки сет
-		if(!menu_mode && counter_mode == 1 && !next_step && stop_timer){
-			rad_max = rad_back;
-			rad_back = 0;
-			next_step = true;
-			stop_timer = false;
-			do_alarm = false;
-			time_min = datamgr.time_min_old;
-			timer_remain = datamgr.timer_time;
-			time_sec = 0;
-		}
-		if(!menu_mode && datamgr.counter_mode == 1 && datamgr.do_alarm && datamgr.next_step && datamgr.stop_timer){
-			do_alarm = false;
-		}
-
-		if(!menu_mode && counter_mode == 0){
-			mean_mode = !mean_mode;
-		}
-
-		if(menu_mode && !editing_mode){						//Сдвинуть курсор, если можно
-			is_detected = true;
-			switch (menu_page){
-				case 0:{ if(datamgr.cursor < 3) datamgr.cursor++; } break;
-				case 1:{ if(datamgr.cursor < 2) datamgr.cursor++; } break;
-				case 2:{ if(datamgr.cursor < 5) datamgr.cursor++; } break;
-				case 3:{ if(datamgr.cursor < 2) datamgr.cursor++; } break;
-				case 4:{ if(datamgr.cursor < 2) datamgr.cursor++; } break;
-				case 5:{ if(datamgr.cursor < 1) datamgr.cursor++; } break;
-				case 6:{ if(datamgr.cursor < 3) datamgr.cursor++; } break;
-				case 7:{ if(datamgr.cursor < 1) datamgr.cursor++; } break;
-			}
-		}
-		if(editing_mode){
-			if(menu_page == 2){
-				if(cursor == 1 && editable < 255) editable+=5;
-				if(cursor == 2 && editable < 255) editable+=51;
-				if(cursor == 3 && editable < 255) editable+=5;
-				if(cursor == 4 && editable < 255) editable++;
-				if(cursor == 5 && editable < 255) editable+=5;
-			}else if(menu_page == 4){
-				switch (cursor){
-					case 0:{ editable++; }break;
-					case 1:{ if(editable < 1) editable++; }break;
-				}
-			}
-			else if(menu_page == 7){
-				switch (cursor){
-					case 0:{ if(editable < 100) editable++; } break;
-					case 1:{ if(editable < 40) editable++; } break;
+					GFLAGS.is_editing_mode = true;
 				}
 			}
 		}
 		update_request();
-	}*/
+	}else if(isClick(&btn_set) && !btn_set_isHolded){					//Клик кнопки сет
+		if(!menu_mode && GMODE.counter_mode == 1 && !GFLAGS.next_step && GFLAGS.stop_timer){
+			GWORK.rad_max = GWORK.rad_back;
+			GWORK.rad_back = 0;
+			GFLAGS.next_step = true;
+			GFLAGS.stop_timer = false;
+			GFLAGS.do_alarm = false;
+			GWORK.time_min = GWORK.time_min_old;
+			GWORK.timer_remain = GWORK.timer_time;
+			GWORK.time_sec = 0;
+		}
+		if(!menu_mode && GMODE.counter_mode == 1 && GFLAGS.do_alarm && GFLAGS.next_step && GFLAGS.stop_timer){
+			GFLAGS.do_alarm = false;
+		}
+
+		if(!menu_mode && GMODE.counter_mode == 0){
+			GFLAGS.is_mean_mode = !GFLAGS.is_mean_mode;
+		}
+
+		if(menu_mode && !GFLAGS.is_editing_mode){						//Сдвинуть курсор, если можно
+			GFLAGS.is_detected = true;
+			switch (GUI.menu_page){
+				case 0:{ if(GUI.cursor < 3) GUI.cursor++; } break;
+				case 1:{ if(GUI.cursor < 2) GUI.cursor++; } break;
+				case 2:{ if(GUI.cursor < 3) GUI.cursor++; } break;
+				case 3:{ if(GUI.cursor < 2) GUI.cursor++; } break;
+				case 4:{ if(GUI.cursor < 2) GUI.cursor++; } break;
+				case 5:{ if(GUI.cursor < 1) GUI.cursor++; } break;
+				case 6:{ if(GUI.cursor < 1) GUI.cursor++; } break;
+				case 7:{ if(GUI.cursor < 2) GUI.cursor++; } break;
+			}
+		}
+		if(GFLAGS.is_editing_mode){
+			if(GUI.menu_page == 4){
+				switch (GUI.cursor){
+					case 0:{ GUI.editable++; }break;
+					case 1:{ if(GUI.editable < 1) GUI.editable++; }break;
+				}
+			}
+			else if(GUI.menu_page == 6){
+				switch (GUI.cursor){
+					case 0:{ if(GUI.editable < 100) GUI.editable++; } break;
+					case 1:{ if(GUI.editable < 40) GUI.editable++; } break;
+				}
+			}else if(GUI.menu_page == 7){
+				switch (GUI.cursor){
+					case 0:{ if(GUI.editable < 31) GUI.editable++; } break;
+					case 1:{ if(GUI.editable < 255) GUI.editable+=5; } break;
+					case 2:{ if(GUI.editable < 255) GUI.editable+=5; } break;
+				}
+			}
+		}
+		update_request();
+	}
 }
 
 /* USER CODE END 0 */
@@ -370,7 +372,6 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
-  MX_SPI1_Init();
   MX_USART1_UART_Init();
   MX_SPI2_Init();
   MX_FATFS_Init();
@@ -408,12 +409,27 @@ int main(void)
 
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
 
+  lcd_config_g.MOSIPORT = GPIOA;
+  lcd_config_g.MOSIPIN = GPIO_PIN_7;
+  lcd_config_g.SCKPORT = GPIOA;
+  lcd_config_g.SCKPIN = GPIO_PIN_5;
+  lcd_config_g.CSPORT = GPIOA;
+  lcd_config_g.CSPIN = GPIO_PIN_4;
+  lcd_config_g.RESPORT = GPIOB;
+  lcd_config_g.RESPIN = GPIO_PIN_0;
+
+  LCD_Init(lcd_config_g);
+  LCD_SetContrast(10);
+
+  GMODE.counter_mode = 0;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	button_action();
 	GFLAGS.is_charging = !(bool)HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_11);
 
 	if(millis() - current_millis > 5000){
@@ -445,9 +461,7 @@ int main(void)
 			}
 		}
 
-		//if(get_battery_requet()) update_request();
-		//battery_request(false);
-		button_action();
+		draw_update();
 
 		if(GMODE.counter_mode==0){
 			if(GWORK.rad_dose - GWORK.rad_dose_old > GSETTING.SAVE_DOSE_INTERVAL){
@@ -601,44 +615,6 @@ static void MX_ADC2_Init(void)
   /* USER CODE BEGIN ADC2_Init 2 */
 
   /* USER CODE END ADC2_Init 2 */
-
-}
-
-/**
-  * @brief SPI1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SPI1_Init(void)
-{
-
-  /* USER CODE BEGIN SPI1_Init 0 */
-
-  /* USER CODE END SPI1_Init 0 */
-
-  /* USER CODE BEGIN SPI1_Init 1 */
-
-  /* USER CODE END SPI1_Init 1 */
-  /* SPI1 parameter configuration*/
-  hspi1.Instance = SPI1;
-  hspi1.Init.Mode = SPI_MODE_MASTER;
-  hspi1.Init.Direction = SPI_DIRECTION_1LINE;
-  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi1.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
-  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi1.Init.CRCPolynomial = 10;
-  if (HAL_SPI_Init(&hspi1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN SPI1_Init 2 */
-
-  /* USER CODE END SPI1_Init 2 */
 
 }
 
@@ -916,6 +892,9 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_7, GPIO_PIN_RESET);
+
   /*Configure GPIO pin : PC13 */
   GPIO_InitStruct.Pin = GPIO_PIN_13;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -934,6 +913,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GINT3_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PA4 PA5 PA7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : SPI1_RST_Pin PB11 BSET_Pin BRSET_Pin */
   GPIO_InitStruct.Pin = SPI1_RST_Pin|GPIO_PIN_11|BSET_Pin|BRSET_Pin;
