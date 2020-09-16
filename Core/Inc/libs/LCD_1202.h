@@ -124,12 +124,13 @@ void LCD_Update(void);
 void LCD_Init(LCD_CONFIG config);
 void LCD_SetContrast(uint8_t value);
 void LCD_SetPowerSave(bool value);
-void LCD_SetRotation();
+void LCD_Flip();
 void LCD_SetPower(bool value);
 void LCD_SetInvert(bool value);
 void LCD_SetCharSize(uint8_t size);
 void LCD_SetTextColor(uint8_t c, uint8_t b);
 void LCD_SetCursor(uint8_t x, uint8_t y);
+void LCD_AddToCursor(uint8_t x, uint8_t y);
 
 void LCD_DrawPixel(uint8_t x, uint8_t y, uint8_t color);
 void LCD_DrawLine(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, uint8_t color);
@@ -140,7 +141,7 @@ void LCD_FillRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t color);
 void LCD_FillScreen(uint8_t color);
 void LCD_DrawChar(uint8_t x, uint8_t y, uint8_t color, uint8_t bg, uint8_t size, unsigned char c);
 void LCD_print(const char *str);
-void LCD_write(int num, bool as_float);
+void LCD_write(float num, bool as_float);
 void LCD_DrawBitmap(uint8_t x, uint8_t y, const char *bitmap, uint8_t w, uint8_t h, uint8_t color);
 
 const char *toString(uint32_t value, uint16_t size);

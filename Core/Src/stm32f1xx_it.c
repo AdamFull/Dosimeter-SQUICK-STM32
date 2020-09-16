@@ -354,6 +354,7 @@ void TIM1_UP_IRQHandler(void)
 		GWORK.rad_dose=(GWORK.rad_sum*GWORK.real_geigertime/3600); //расчитаем дозу
 
 		GUI.mass[GUI.x_p]=map(GWORK.rad_back, 0, GWORK.rad_max < 40 ? 40 : GWORK.rad_max, 0, 19);
+		//for(uint8_t i=0;i<96;i++) GUI.mass[i]=GUI.mass[i] * sqrt(GWORK.rad_back/GWORK.rad_max);
 		if(GUI.x_p<95)GUI.x_p++;
 		if(GUI.x_p==95){
 			for(uint8_t i=0;i<95;i++)GUI.mass[i]=GUI.mass[i+1];

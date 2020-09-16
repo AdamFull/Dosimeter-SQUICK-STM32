@@ -89,34 +89,42 @@ void draw_main(){
 			uint16_t deviation = map(100-(GMEANING.mean/(GMEANING.mean+GMEANING.std))*100, 0, 100, GSETTING.GEIGER_ERROR, 100);
 			if(deviation > 100) deviation = 100;
 
-			LCD_SetCursor(LCD_X - (getNumOfDigits(deviation)+2)*6, 13);
-			LCD_write(deviation, false);
-			LCD_print("%");
-
 			LCD_SetCharSize(2);
 			LCD_SetCursor(0, 8);
-			if(GWORK.rad_back > 1000) LCD_write(GWORK.rad_back/1000, false);
-			else if(GWORK.rad_back > 1000000) LCD_write(GWORK.rad_back/1000000, false);
+			if(GWORK.rad_back > 1000) LCD_write((float)GWORK.rad_back/1000, true);
+			else if(GWORK.rad_back > 1000000) LCD_write((float)GWORK.rad_back/1000000, true);
 			else LCD_write(GWORK.rad_back, false);
 
 			LCD_SetCharSize(0);
+			LCD_AddToCursor(5, 7);
+			LCD_write(deviation, false);
+			LCD_print("%");
+
 			LCD_SetCursor(0, 23);
 			if(GWORK.rad_back > 1000) LCD_print(T_MRH);
 			else if(GWORK.rad_back > 1000000) LCD_print(T_RH);
 			else LCD_print(T_URH);
 
-			LCD_SetCursor(LCD_X - (getNumOfDigits(GWORK.rad_dose)+2)*6, 23);
-			if(GWORK.rad_dose > 1000) LCD_write(GWORK.rad_dose/1000, false);
-			else if(GWORK.rad_dose > 1000000) LCD_write(GWORK.rad_dose/1000000, false);
+			LCD_SetCharSize(0);
+			LCD_SetCursor(0, 33);
+			LCD_write(GWORK.rad_max, false);
+			LCD_SetCursor(0, 40);
+			LCD_print(T_MAX);
+
+			LCD_DrawFastHLine(0,31,20,COLOR_BLACK);
+			LCD_DrawFastHLine(0,48,20,COLOR_BLACK);
+
+			LCD_SetCursor(0, 50);
+			if(GWORK.rad_dose > 1000) LCD_write((float)GWORK.rad_dose/1000, true);
+			else if(GWORK.rad_dose > 1000000) LCD_write((float)GWORK.rad_dose/1000000, true);
 			else LCD_write(GWORK.rad_dose, false);
 			if(GWORK.rad_dose > 1000) LCD_print(T_MR);
 			else if(GWORK.rad_dose > 1000000) LCD_print(T_R);
 			else LCD_print(T_UR);
-			LCD_DrawFastHLine(0,48, LCD_X, COLOR_BLACK);
+			LCD_SetCursor(0, 58);
+			LCD_print(S_DOSE);
 
-			for(uint8_t i=0;i < LCD_X;i++){
-				LCD_DrawLine(i, LCD_Y - 1, i, LCD_Y-1-GUI.mass[i], COLOR_BLACK);
-			}
+			draw_graph();
 		}else if(GMODE.counter_mode == 1){
 			LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);
 			LCD_SetCursor(0, 0);
@@ -133,7 +141,7 @@ void draw_main(){
 			LCD_write(GWORK.time_sec, false);
 			LCD_DrawFastHLine(0,48, LCD_X, COLOR_BLACK);
 			LCD_FillRect(0, 50, map(GWORK.timer_remain, GWORK.timer_time, 0, 0, LCD_X), 16, COLOR_BLACK);
-			LCD_DrawFastHLine(0,LCD_Y-1,LCD_X,COLOR_BLACK);
+			//LCD_DrawFastHLine(0,LCD_Y-1,LCD_X,COLOR_BLACK);
 			LCD_SetTextColor(COLOR_WHITE, COLOR_BLACK);
 			LCD_SetCursor(LCD_X - strlen(S_PRESSSET), 54);
 			if(GFLAGS.stop_timer && !GFLAGS.next_step) LCD_print(S_PRESSSET);
@@ -147,22 +155,25 @@ void draw_main(){
 			LCD_SetCharSize(2);
 			LCD_SetCursor(0, 9);
 			LCD_write(GWORK.rad_buff[0], false);
-			LCD_SetCursor(LCD_X - getNumOfDigits(GWORK.sum_old)*12, 8);
-			LCD_write(GWORK.sum_old, false);
+
 			LCD_SetCharSize(0);
-			LCD_SetCursor(0, 33);
-			LCD_write(GWORK.rad_max, false);
 			LCD_SetCursor(0, 23);
 			LCD_print(T_CPS);
-			LCD_SetCursor(LCD_X - 3*6, 23);
-			LCD_print(T_OLD);
-			LCD_SetCursor(0, 40);
-			LCD_print(T_MAX);
-			LCD_DrawFastHLine(0,LCD_Y-1,LCD_X,COLOR_BLACK);
 
-			for(uint8_t i=0;i<LCD_X;i++){
-				LCD_DrawLine(i,LCD_Y-1, i, LCD_Y-1-GUI.mass[i], COLOR_BLACK);
-			}
+			LCD_SetCursor(0, 33);
+			LCD_write(GWORK.sum_old, false);
+			LCD_SetCursor(0, 41);
+			LCD_print(T_OLD);
+
+			LCD_SetCursor(0, 51);
+			LCD_write(GWORK.rad_max, false);
+			LCD_SetCursor(0, 59);
+			LCD_print(T_MAX);
+
+			LCD_DrawFastHLine(0,31,20,COLOR_BLACK);
+			LCD_DrawFastHLine(0,49,20,COLOR_BLACK);
+
+			draw_graph();
 		}
 	}
 	LCD_Update();
@@ -209,8 +220,16 @@ void draw_checkbox_menu_page(const char** punct_names, bool* punct_values, bool*
 	}
 }
 
+void draw_graph(){
+	for(uint8_t i=0;i < LCD_X-1;i++){//сделать интерполяцию графика
+		uint8_t x_coord = map(i, 0, LCD_X-1, 21, LCD_X-1);
+		uint8_t interpolated = (uint8_t)lerp(LCD_Y-1-GUI.mass[i], LCD_Y-1-GUI.mass[i+1], 0.5);
+		LCD_DrawLine(x_coord, LCD_Y - 1, x_coord, interpolated, COLOR_BLACK);
+	}
+}
+
 void draw_menu(){
-	const char* current_page_name[PAGES] = {S_MENU, S_MODE, S_SETTINGS, S_RESET, S_ACTIVITY, S_SURE, S_GCOUNTER, S_ADVANCED};
+	const char* current_page_name[PAGES] = {S_MENU, S_MODE, S_SETTINGS, S_RESET, S_ACTIVITY, S_SURE, S_GCOUNTER, S_ADVANCED, S_ABOUT};
 	LCD_SetCharSize(0);
 	const char *page_name = current_page_name[GUI.menu_page];
 	#if defined(RU)
@@ -229,8 +248,8 @@ void draw_menu(){
 
 	switch (GUI.menu_page){
 		case 0:{
-			const char* current_page_puncts[4] = {S_MODE, S_SETTINGS, S_RESET, S_POFF};
-			draw_simple_menu_page(current_page_puncts, 4);
+			const char* current_page_puncts[5] = {S_MODE, S_SETTINGS, S_RESET, S_POFF, S_ABOUT};
+			draw_simple_menu_page(current_page_puncts, 5);
 		}break;
 
 		case 1:{
@@ -274,6 +293,20 @@ void draw_menu(){
 	        	const uint8_t current_page_values[asettings_puncts] = {GSETTING.LCD_CONTRAST, GSETTING.SAVE_DOSE_INTERVAL, GSETTING.ALARM_THRESHOLD};
 	        	const char current_page_postfixes[3] = {' ', ' ', ' '};
 	        	draw_editable_menu_page(current_page_puncts, current_page_values, current_page_postfixes, 3);
+	        }break;
+	        case 8:{
+	        	LCD_print("Firmwave: v1.0");
+	        	LCD_SetCursor(0, 20);
+	        	LCD_print("Device name: SQUICK");
+	        	LCD_SetCursor(0, 30);
+	        	LCD_print("Device model: 2");
+	        	LCD_SetCursor(0, 40);
+	        	LCD_print("MPU: STM32F103");
+	        	LCD_SetCursor(0, 50);
+	        	LCD_print("GUI API: v0.1b");
+	        	LCD_SetCursor(0, 60);
+	        	LCD_print("Author: AdamFull");
+	        	LCD_SetCursor(0, 70);
 	        }break;
 	    }
 	    LCD_Update();

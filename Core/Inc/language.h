@@ -8,7 +8,7 @@
 #ifndef INC_LANGUAGE_H_
 #define INC_LANGUAGE_H_
 
-#define PAGES 8
+#define PAGES 9
 #define EN
 
 #if defined(RU)
@@ -74,6 +74,7 @@ const char* S_GTIME = "Means time:";
 const char* S_ERROR = "Error:";
 const char* S_POFF = "Sleep";
 const char* S_SURE = "Sure?";
+const char* S_ABOUT = "About";
 #endif
 
 const char* T_URH = "uR/h";

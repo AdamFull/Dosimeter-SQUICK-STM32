@@ -2,6 +2,7 @@
 #include "libs/GFX_font.h"
 #include "stdlib.h"
 #include "string.h"
+#include "util.h"
 
 uint8_t _LCD_RAM[LCD_X*LCD_String]; // Память нашего LCD
 
@@ -189,14 +190,13 @@ void LCD_print(const char *str) {
 }
 
 // Вывод числовых значений
-void LCD_write(int num, bool as_float){
+void LCD_write(float num, bool as_float){
   char c[32];
   if(!as_float){
-
+	  sprintf(c, "%d", (int)num);
   }else{
-
+	  ftoa(num, c, 2);
   }
-  sprintf(c, "%d", num);
   LCD_print(c);
 }
 
@@ -219,8 +219,9 @@ void LCD_SetPowerSave(bool value){
 	LCD_SendByte(LCD_C, getCommand(STE2007_CMD_DPYALLPTS, power_byte, STE2007_MASK_DPYALLPTS));
 }
 
-void LCD_SetRotation(){
-
+void LCD_Flip(){
+	LCD_SendByte(LCD_C, getCommand(STE2007_CMD_SEGMENTDIR, 1, STE2007_MASK_SEGMENTDIR));	//Display on
+	LCD_SendByte(LCD_C, getCommand(STE2007_CMD_COMDIR, 8, STE2007_MASK_COMDIR));
 }
 
 void LCD_SetPower(bool value){
@@ -245,6 +246,11 @@ void LCD_SetTextColor(uint8_t c, uint8_t b){
 void LCD_SetCursor(uint8_t x, uint8_t y){
 	cursor_x = x;
 	cursor_y = y;
+}
+
+void LCD_AddToCursor(uint8_t x, uint8_t y){
+	cursor_x += x;
+	cursor_y += y;
 }
 
 // Инициализируем дисплей

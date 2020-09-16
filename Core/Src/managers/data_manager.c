@@ -95,8 +95,6 @@ void Initialize_data(){
 	Initialize_variables();
 	GFLAGS.is_memory_initialized = Init_memory();
 
-	printf("w25qxx memory init status: %s\n", GFLAGS.is_memory_initialized ? "true" : "false");
-
 	if(GFLAGS.is_memory_initialized){
 		Read_configuration();
 		Write_configuration();
@@ -117,9 +115,6 @@ void Update_rad_buffer(){
 	GWORK.rad_buff = (uint16_t*)calloc(GWORK.real_geigertime, sizeof(uint16_t));
 	free(GWORK.stat_buff);
 	GWORK.stat_buff = (uint32_t*)calloc(GWORK.real_geigertime, sizeof(uint32_t));
-
-	printf("Allocated %d bytes for rad buffer on address %p\n", GWORK.real_geigertime * sizeof(uint16_t), GWORK.rad_buff);
-	printf("Allocated %d bytes for stats buffer on address %p\n", GWORK.real_geigertime * sizeof(uint32_t), GWORK.stat_buff);
 
 	if(GWORK.rad_buff != NULL && GWORK.stat_buff != NULL){
 		GWORK.rad_back = GWORK.rad_max = 0;
