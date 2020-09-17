@@ -69,21 +69,15 @@ extern geiger_ui GUI;
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+
+void ADC_ConvCpltCallback(void)
 {
-    if(hadc->Instance == ADC1) //check if the interrupt comes from ACD1
-    {
-    	battery_adc_value = HAL_ADC_GetValue(hadc);
-    }else if(hadc->Instance == ADC2){
-    	high_voltage_adc_value = HAL_ADC_GetValue(hadc);
-    }
-    //HAL_ADC_Start_IT(hadc);
+
 }
+
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern ADC_HandleTypeDef hadc1;
-extern ADC_HandleTypeDef hadc2;
 extern TIM_HandleTypeDef htim1;
 extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim3;
@@ -248,7 +242,13 @@ void EXTI1_IRQHandler(void)
 		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
 	}
   /* USER CODE END EXTI1_IRQn 0 */
-  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1);
+  if (LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_1) != RESET)
+  {
+    LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_1);
+    /* USER CODE BEGIN LL_EXTI_LINE_1 */
+
+    /* USER CODE END LL_EXTI_LINE_1 */
+  }
   /* USER CODE BEGIN EXTI1_IRQn 1 */
 
   /* USER CODE END EXTI1_IRQn 1 */
@@ -274,7 +274,13 @@ void EXTI2_IRQHandler(void)
 		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
 	}
   /* USER CODE END EXTI2_IRQn 0 */
-  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_2);
+  if (LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_2) != RESET)
+  {
+    LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_2);
+    /* USER CODE BEGIN LL_EXTI_LINE_2 */
+
+    /* USER CODE END LL_EXTI_LINE_2 */
+  }
   /* USER CODE BEGIN EXTI2_IRQn 1 */
 
   /* USER CODE END EXTI2_IRQn 1 */
@@ -300,7 +306,13 @@ void EXTI3_IRQHandler(void)
 		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
 	}
   /* USER CODE END EXTI3_IRQn 0 */
-  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_3);
+  if (LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_3) != RESET)
+  {
+    LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_3);
+    /* USER CODE BEGIN LL_EXTI_LINE_3 */
+
+    /* USER CODE END LL_EXTI_LINE_3 */
+  }
   /* USER CODE BEGIN EXTI3_IRQn 1 */
 
   /* USER CODE END EXTI3_IRQn 1 */
@@ -312,10 +324,15 @@ void EXTI3_IRQHandler(void)
 void ADC1_2_IRQHandler(void)
 {
   /* USER CODE BEGIN ADC1_2_IRQn 0 */
-
+	if(LL_ADC_IsActiveFlag_JEOS(ADC1) != 0) {
+	    LL_ADC_ClearFlag_JEOS(ADC1);
+	    battery_adc_value = LL_ADC_INJ_ReadConversionData12(ADC1, LL_ADC_INJ_RANK_1);
+	 }else if(LL_ADC_IsActiveFlag_JEOS(ADC2) != 0){
+		 LL_ADC_ClearFlag_JEOS(ADC2);
+		 high_voltage_adc_value = LL_ADC_INJ_ReadConversionData12(ADC2, LL_ADC_INJ_RANK_1);
+	 }
   /* USER CODE END ADC1_2_IRQn 0 */
-  HAL_ADC_IRQHandler(&hadc1);
-  HAL_ADC_IRQHandler(&hadc2);
+
   /* USER CODE BEGIN ADC1_2_IRQn 1 */
 
   /* USER CODE END ADC1_2_IRQn 1 */

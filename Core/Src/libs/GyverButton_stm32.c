@@ -38,13 +38,7 @@ void setTimeout(GyverButton* btn, uint16_t new_timeout) {
 void setClickTimeout(GyverButton* btn, uint16_t new_timeout) {
 	btn->_click_timeout = new_timeout;
 }
-/*void setType(GyverButton* btn, bool type) {
-	btn->flags.type = type;
-	if (!btn->flags.noPin) {
-		if (type) PORTC_MODE(_PIN, INPUT);
-		else { PORTC_MODE(_PIN, INPUT); PORTC_WRITE(_PIN, HIGH); }
-	}
-}*/
+
 void setDirection(GyverButton* btn, bool dir) {
 	btn->flags.inv_state = dir;
 }
@@ -107,7 +101,7 @@ void ttick(GyverButton* btn, bool state) {
 
 void tick(GyverButton* btn) {
 	// читаем пин
-	bool readed_state = (bool)HAL_GPIO_ReadPin(btn->BTNPORT, btn->BTNPIN);
+	bool readed_state = (bool)(btn->BTNPORT->IDR & btn->BTNPIN);
 	if (!btn->flags.mode && !btn->flags.noPin) btn->btn_state = !readed_state ^ (btn->flags.inv_state ^ btn->flags.type);
 
 	uint32_t thisMls = millis();

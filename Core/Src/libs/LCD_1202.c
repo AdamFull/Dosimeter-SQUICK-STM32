@@ -27,33 +27,35 @@ const char *toString(uint32_t value, uint16_t size){
 void LCD_SendByte(uint8_t mode, uint8_t c)
 {
   // Опускаем ножку CS для дисплея
-	HAL_GPIO_WritePin(lcd_config.CSPORT, lcd_config.CSPIN, GPIO_PIN_RESET);
+	//LL_GPIO_ResetOutputPin(GPIOx, PinMask);
+	//LL_GPIO_SetOutputPin(GPIOx, PinMask);
+	LL_GPIO_ResetOutputPin(lcd_config.CSPORT, lcd_config.CSPIN);
   // Формируем первый передаваемый бит - выбор память-команда
 	if (mode) {
-		HAL_GPIO_WritePin(lcd_config.MOSIPORT, lcd_config.MOSIPIN, GPIO_PIN_SET);
+		LL_GPIO_SetOutputPin(lcd_config.MOSIPORT, lcd_config.MOSIPIN);
 	}
 	else {
-		HAL_GPIO_WritePin(lcd_config.MOSIPORT, lcd_config.MOSIPIN, GPIO_PIN_RESET);
+		LL_GPIO_ResetOutputPin(lcd_config.MOSIPORT, lcd_config.MOSIPIN);
 	};
 	// Проталкиваем тактовым импульсом
-	HAL_GPIO_WritePin(lcd_config.SCKPORT, lcd_config.SCKPIN, GPIO_PIN_SET);
+	LL_GPIO_SetOutputPin(lcd_config.SCKPORT, lcd_config.SCKPIN);
 	// В цикле передаем остальные биты
 	for(uint8_t i=0; i<8; i++) {
     // Сбрасываем тактовую ножку
-    HAL_GPIO_WritePin(lcd_config.SCKPORT, lcd_config.SCKPIN, GPIO_PIN_RESET);
+		LL_GPIO_ResetOutputPin(lcd_config.SCKPORT, lcd_config.SCKPIN);
     // Выставляем бит данных
 		if (c & 0x80) {
-			HAL_GPIO_WritePin(lcd_config.MOSIPORT, lcd_config.MOSIPIN, GPIO_PIN_SET);
+			LL_GPIO_SetOutputPin(lcd_config.MOSIPORT, lcd_config.MOSIPIN);
 		}
 		else {
-			HAL_GPIO_WritePin(lcd_config.MOSIPORT, lcd_config.MOSIPIN, GPIO_PIN_RESET);
+			LL_GPIO_ResetOutputPin(lcd_config.MOSIPORT, lcd_config.MOSIPIN);
 		};
 		// Тактом ее, тактом
-		HAL_GPIO_WritePin(lcd_config.SCKPORT, lcd_config.SCKPIN, GPIO_PIN_SET);
+		LL_GPIO_SetOutputPin(lcd_config.SCKPORT, lcd_config.SCKPIN);
 		// Сдвигаем данные
     c <<= 1;
 	};
-	HAL_GPIO_WritePin(lcd_config.SCKPORT, lcd_config.SCKPIN, GPIO_PIN_RESET);
+	LL_GPIO_ResetOutputPin(lcd_config.SCKPORT, lcd_config.SCKPIN);
 }
 
 // Очистка памяти дисплея
@@ -140,6 +142,11 @@ void LCD_FillRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t color) {
 // Заливка экрана
 void LCD_FillScreen(uint8_t color) {
   LCD_FillRect(0, 0, LCD_X, LCD_Y, color);
+}
+
+void LCD_JustDrawChar(unsigned char c){
+	LCD_DrawChar(cursor_x, cursor_y, textcolor, textbgcolor, textsize, c);
+	cursor_x=cursor_x+textsize*5;;
 }
 
 // Нарисовать букву
@@ -257,18 +264,19 @@ void LCD_AddToCursor(uint8_t x, uint8_t y){
 void LCD_Init(LCD_CONFIG config) {
   // Инициализация дисплея
 	lcd_config = config;
-	HAL_GPIO_WritePin(lcd_config.RESPORT, lcd_config.RESPIN, GPIO_PIN_RESET); // Активируем ресет
-	HAL_Delay(5);
-	HAL_GPIO_WritePin(lcd_config.RESPORT, lcd_config.RESPIN, GPIO_PIN_SET);   // Деактивируем ресет
-	HAL_GPIO_WritePin(lcd_config.SCKPORT, lcd_config.SCKPIN, GPIO_PIN_RESET);     // Тактовый вывод низкое состояние
-	HAL_GPIO_WritePin(lcd_config.MOSIPORT, lcd_config.MOSIPIN, GPIO_PIN_RESET);   // Вывод данных в низкое состояние
-	HAL_GPIO_WritePin(lcd_config.CSPORT, lcd_config.CSPIN, GPIO_PIN_RESET);			 // Выбираем дисплей
+	LL_GPIO_ResetOutputPin(lcd_config.RESPORT, lcd_config.RESPIN); // Активируем ресет
+	LL_mDelay(5);
+
+	LL_GPIO_SetOutputPin(lcd_config.RESPORT, lcd_config.RESPIN);   // Деактивируем ресет
+	LL_GPIO_ResetOutputPin(lcd_config.SCKPORT, lcd_config.SCKPIN);     // Тактовый вывод низкое состояние
+	LL_GPIO_ResetOutputPin(lcd_config.MOSIPORT, lcd_config.MOSIPIN);   // Вывод данных в низкое состояние
+	LL_GPIO_ResetOutputPin(lcd_config.CSPORT, lcd_config.CSPIN);			 // Выбираем дисплей
 	// Задержка
-	HAL_Delay(5);
-	HAL_GPIO_WritePin(lcd_config.CSPORT, lcd_config.CSPIN, GPIO_PIN_SET);			 // Выбираем дисплей
+	LL_mDelay(5);
+	LL_GPIO_SetOutputPin(lcd_config.CSPORT, lcd_config.CSPIN);			 // Выбираем дисплей
 
 	LCD_SendByte(LCD_C, getCommand(STE2007_CMD_RESET, 0, STE2007_MASK_RESET));  // Reset chip
-	HAL_Delay(5);
+	LL_mDelay(5);
 
 	LCD_SendByte(LCD_C, getCommand(STE2007_CMD_DPYALLPTS, 0, STE2007_MASK_DPYALLPTS)); // Powersave ALLPOINTS-ON mode turned OFF
 	LCD_SendByte(LCD_C, getCommand(STE2007_CMD_PWRCTL, 7, STE2007_MASK_PWRCTL));		// Power control set to max
@@ -290,7 +298,7 @@ void LCD_Init(LCD_CONFIG config) {
 	LCD_SendByte(LCD_C, STE2007_CMD_VOP);
 	LCD_SendByte(LCD_C, getComCmd(0, STE2007_MASK_VOP));
 	LCD_SendByte(LCD_C, getCommand(STE2007_CMD_DPYREV, 0, STE2007_MASK_DPYREV));	// Display normal (not inverted)
-	HAL_Delay(10);
+	LL_mDelay(10);
 
 	LCD_Update();
 }

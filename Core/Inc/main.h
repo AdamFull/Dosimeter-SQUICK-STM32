@@ -29,6 +29,19 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f1xx_hal.h"
+#include "stm32f1xx_ll_adc.h"
+#include "stm32f1xx_ll_rcc.h"
+#include "stm32f1xx_ll_bus.h"
+#include "stm32f1xx_ll_system.h"
+#include "stm32f1xx_ll_exti.h"
+#include "stm32f1xx_ll_cortex.h"
+#include "stm32f1xx_ll_utils.h"
+#include "stm32f1xx_ll_pwr.h"
+#include "stm32f1xx_ll_dma.h"
+#include "stm32f1xx_ll_spi.h"
+#include "stm32f1xx_ll_usart.h"
+#include "stm32f1xx.h"
+#include "stm32f1xx_ll_gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -60,20 +73,20 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define GINT1_Pin GPIO_PIN_1
+#define GINT1_Pin LL_GPIO_PIN_1
 #define GINT1_GPIO_Port GPIOA
 #define GINT1_EXTI_IRQn EXTI1_IRQn
-#define GINT2_Pin GPIO_PIN_2
+#define GINT2_Pin LL_GPIO_PIN_2
 #define GINT2_GPIO_Port GPIOA
 #define GINT2_EXTI_IRQn EXTI2_IRQn
-#define GINT3_Pin GPIO_PIN_3
+#define GINT3_Pin LL_GPIO_PIN_3
 #define GINT3_GPIO_Port GPIOA
 #define GINT3_EXTI_IRQn EXTI3_IRQn
-#define SPI1_RST_Pin GPIO_PIN_0
+#define SPI1_RST_Pin LL_GPIO_PIN_0
 #define SPI1_RST_GPIO_Port GPIOB
-#define BSET_Pin GPIO_PIN_4
+#define BSET_Pin LL_GPIO_PIN_4
 #define BSET_GPIO_Port GPIOB
-#define BRSET_Pin GPIO_PIN_5
+#define BRSET_Pin LL_GPIO_PIN_5
 #define BRSET_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 

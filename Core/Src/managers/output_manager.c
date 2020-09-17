@@ -58,6 +58,8 @@ void draw_main(){
 	int coeff = mapfloat(GMEANING.current_battery_voltage, BAT_ADC_MIN, BAT_ADC_MAX, 0, 12);             //Значение сдвига пикселей для визуализации заряда аккумулятора
 	bool show_battery = false;
 
+	//отрисовка этой части занимает 1.87 кб
+
 	/*if(!datamgr->is_charging && !show_battery){
 		display.drawBitmap(69, 0, battery_Bitmap, 15, 7, BLACK);
 		display.fillRect(83-coeff, 1, 12, 5, BLACK);
@@ -96,7 +98,8 @@ void draw_main(){
 			else LCD_write(GWORK.rad_back, false);
 
 			LCD_SetCharSize(0);
-			LCD_AddToCursor(5, 7);
+			LCD_AddToCursor(0, 3);
+			LCD_JustDrawChar(0x60);
 			LCD_write(deviation, false);
 			LCD_print("%");
 
@@ -200,7 +203,7 @@ void draw_editable_menu_page(const char** punct_names, uint8_t* punct_values, ch
 			LCD_SetCursor(LCD_X - (getNumOfDigits(punct_values[i])+1)*6, 10+9*i);
 			LCD_write(punct_values[i], false);
 		}
-		LCD_print((const char*)postfixes[i]);
+		LCD_JustDrawChar(postfixes[i]);
 		LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);
 	}
 }
@@ -246,6 +249,8 @@ void draw_menu(){
 	LCD_SetCursor(0, 10);
 	LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);
 
+	//отрисовка меню занимает 1.56 кб, без оптимизации.
+
 	switch (GUI.menu_page){
 		case 0:{
 			const char* current_page_puncts[5] = {S_MODE, S_SETTINGS, S_RESET, S_POFF, S_ABOUT};
@@ -271,7 +276,7 @@ void draw_menu(){
 		//Меню настройки режима активности
 		case 4:{
 			const char* current_page_puncts[3] = {S_TIME, S_MEANS, S_BEGIN};
-			const uint8_t current_page_values[3] = {GSETTING.GEIGER_TIME, GSETTING.GEIGER_ERROR, GSETTING.GEIGER_VOLTAGE};
+			const uint16_t current_page_values[3] = {GWORK.time_min, GMODE.means_times, GWORK.time_min};
 			const char current_page_postfixes[3] = {'m', 't', 'm'};
 			draw_editable_menu_page(current_page_puncts, current_page_values, current_page_postfixes, 3);
 	        }break;
@@ -283,7 +288,7 @@ void draw_menu(){
 	        //Кастомные настройки счётчика
 	        case 6:{
 	        	const char* current_page_puncts[3] = {S_GTIME, S_ERROR, S_VOLTAGE};
-	        	const uint8_t current_page_values[3] = {GWORK.time_min, GMODE.means_times, GWORK.time_min};
+	        	const uint8_t current_page_values[3] = {GSETTING.GEIGER_TIME, GSETTING.GEIGER_ERROR, GSETTING.GEIGER_VOLTAGE};
 	        	const char current_page_postfixes[3] = {'s', '%', 'V'};
 	        	draw_editable_menu_page(current_page_puncts, current_page_values, current_page_postfixes, 3);
 	        }break;

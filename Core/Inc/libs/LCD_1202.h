@@ -5,8 +5,8 @@
  * Rewrited, and upgraded by AdamFull
  * 9.09.2020
 */
-
-#include "stm32f1xx_hal.h"
+#include "stm32f1xx_ll_gpio.h"
+#include "stm32f103xb.h"
 #include "stdbool.h"
 
 #define COLOR_BLACK 1
@@ -140,6 +140,7 @@ void LCD_DrawRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t color);
 void LCD_FillRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t color);
 void LCD_FillScreen(uint8_t color);
 void LCD_DrawChar(uint8_t x, uint8_t y, uint8_t color, uint8_t bg, uint8_t size, unsigned char c);
+void LCD_JustDrawChar(unsigned char c);
 void LCD_print(const char *str);
 void LCD_write(float num, bool as_float);
 void LCD_DrawBitmap(uint8_t x, uint8_t y, const char *bitmap, uint8_t w, uint8_t h, uint8_t color);

@@ -12,7 +12,7 @@
 #include "fatfs.h"
 #include "string.h"
 
-#include "parser.h"
+//#include "parser.h"
 
 geiger_settings GSETTING;
 geiger_work GWORK;
@@ -31,13 +31,13 @@ extern FRESULT fres;
 extern DWORD fre_clust;
 extern uint32_t total_memory, free_memory;
 
-char configdata[512] = "GEIGER_ERROR = 28\nGEIGER_TIME = 21\nTRANSFORMER_PWM = 60\nLCD_CONTRAST = 60\nLCD_BACKLIGHT = 0\nBUZZER_TONE = 50\nACTIVE_COUNTERS = 1\nCUMULATIVE_DOSE = 0\nCOUNTER_MODE = 0\nSAVE_DOSE_INTERVAL = 20\nALARM_THRESHOLD = 100\n\0";
+//char configdata[512] = "GEIGER_ERROR = 28\nGEIGER_TIME = 21\nTRANSFORMER_PWM = 60\nLCD_CONTRAST = 60\nLCD_BACKLIGHT = 0\nBUZZER_TONE = 50\nACTIVE_COUNTERS = 1\nCUMULATIVE_DOSE = 0\nCOUNTER_MODE = 0\nSAVE_DOSE_INTERVAL = 20\nALARM_THRESHOLD = 100\n\0";
 
 void Initialize_variables(){
 	GSETTING.GEIGER_ERROR = 2;
 	GSETTING.GEIGER_TIME = 21;
 	GSETTING.GEIGER_VOLTAGE = 400;
-	GSETTING.LCD_CONTRAST = 60;
+	GSETTING.LCD_CONTRAST = 15;
 	GSETTING.LCD_BACKLIGHT = 0;
 	GSETTING.BUZZER_TONE = 200;
 	GSETTING.ACTIVE_COUNTERS = 1;
@@ -104,7 +104,7 @@ void Initialize_data(){
 	Reset_activity_test();
 	Update_rad_buffer();
 
-	memset(configdata, 0, strlen(configdata));
+	//memset(configdata, 0, strlen(configdata));
 }
 
 void Update_rad_buffer(){
@@ -213,11 +213,11 @@ bool is_memory_valid(){
 }
 
 bool Read_configuration(){
-	configfile config;
+	//configfile config;
 
 	Read_memory("config.ini");
 
-	open_config(&config, configdata);
+	/*open_config(&config, configdata);
 	tokenize_config(&config);
 	GSETTING.GEIGER_ERROR = get_token_by_name(&config, "GEIGER_ERROR").token_value;
 	GSETTING.GEIGER_TIME = get_token_by_name(&config, "GEIGER_TIME").token_value;
@@ -230,16 +230,16 @@ bool Read_configuration(){
 	GMODE.counter_mode = get_token_by_name(&config, "COUNTER_MODE").token_value;
 	GSETTING.SAVE_DOSE_INTERVAL = get_token_by_name(&config, "SAVE_DOSE_INTERVAL").token_value;
 	GSETTING.ALARM_THRESHOLD = get_token_by_name(&config, "ALARM_THRESHOLD").token_value;
-	close_config(&config);
+	close_config(&config);*/
 	return 0;
 }
 
 bool Write_configuration(){
-	configfile config;
+	//configfile config;
 
 	//Read_memory("config.ini");
 
-	open_config(&config, configdata);
+	/*open_config(&config, configdata);
 	tokenize_config(&config);
 	edit_token(&config, "GEIGER_ERROR", GSETTING.GEIGER_ERROR);
 	edit_token(&config, "GEIGER_TIME", GSETTING.GEIGER_TIME);
@@ -253,7 +253,7 @@ bool Write_configuration(){
 	edit_token(&config, "SAVE_DOSE_INTERVAL", GSETTING.SAVE_DOSE_INTERVAL);
 	edit_token(&config, "ALARM_THRESHOLD", GSETTING.ALARM_THRESHOLD);
 	write_config(&config);
-	close_config(&config);
+	close_config(&config);*/
 	return 0;
 }
 

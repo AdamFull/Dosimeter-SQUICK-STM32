@@ -10,7 +10,7 @@
 
 #include "stdbool.h"
 #include "stdint.h"
-#include "stm32f1xx.h"
+#include "stm32f1xx_ll_gpio.h"
 
 /*
 	GyverButton - библиотека для многофункциональной отработки нажатия кнопки. Возможности:
