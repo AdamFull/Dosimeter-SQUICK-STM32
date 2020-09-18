@@ -11,10 +11,12 @@
 #include "math.h"
 #include "fatfs.h"
 #include "string.h"
+#include "libs/LCD_1202.h"
 
 //#include "parser.h"
 
-geiger_settings GSETTING;
+//geiger_settings GSETTING;
+NVRAM DevNVRAM;
 geiger_work GWORK;
 geiger_meaning GMEANING;
 geiger_flags GFLAGS;
@@ -31,18 +33,9 @@ extern FRESULT fres;
 extern DWORD fre_clust;
 extern uint32_t total_memory, free_memory;
 
-//char configdata[512] = "GEIGER_ERROR = 28\nGEIGER_TIME = 21\nTRANSFORMER_PWM = 60\nLCD_CONTRAST = 60\nLCD_BACKLIGHT = 0\nBUZZER_TONE = 50\nACTIVE_COUNTERS = 1\nCUMULATIVE_DOSE = 0\nCOUNTER_MODE = 0\nSAVE_DOSE_INTERVAL = 20\nALARM_THRESHOLD = 100\n\0";
+size_t free_rom, free_ram;
 
 void Initialize_variables(){
-	GSETTING.GEIGER_ERROR = 2;
-	GSETTING.GEIGER_TIME = 21;
-	GSETTING.GEIGER_VOLTAGE = 400;
-	GSETTING.LCD_CONTRAST = 15;
-	GSETTING.LCD_BACKLIGHT = 0;
-	GSETTING.BUZZER_TONE = 200;
-	GSETTING.ACTIVE_COUNTERS = 1;
-	GSETTING.SAVE_DOSE_INTERVAL = 20;
-	GSETTING.ALARM_THRESHOLD = 100;
 
 	GWORK.time_min_old = 0;
 	GWORK.time_min = 1;
@@ -54,7 +47,6 @@ void Initialize_variables(){
 	GWORK.timer_time = 0;
 	GWORK.timer_remain = 0;
 	GWORK.rad_dose_old = 0;
-	GWORK.rad_sum = 0;
 	GWORK.rad_back = 0;
 	GWORK.rad_max = 0;
 	GWORK.rad_dose = 0;
@@ -93,24 +85,17 @@ void Initialize_variables(){
 
 void Initialize_data(){
 	Initialize_variables();
+	Init_configuration();
 	GFLAGS.is_memory_initialized = Init_memory();
-
-	if(GFLAGS.is_memory_initialized){
-		Read_configuration();
-		Write_configuration();
-	}else{
-		error_detector = FLASH_MEMORY_ERROR;
-	}
 	Reset_activity_test();
 	Update_rad_buffer();
-
-	//memset(configdata, 0, strlen(configdata));
+	free_ram = GetRamFree();
+	free_rom = GetRomFree();
 }
 
 void Update_rad_buffer(){
-
-	if(GSETTING.ACTIVE_COUNTERS == 3) GWORK.real_geigertime = GSETTING.GEIGER_TIME/2;
-	else GWORK.real_geigertime = GSETTING.GEIGER_TIME;
+	if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 3) GWORK.real_geigertime = DevNVRAM.GSETTING.GEIGER_TIME/2;
+	else GWORK.real_geigertime = DevNVRAM.GSETTING.GEIGER_TIME;
 	free(GWORK.rad_buff);
 	GWORK.rad_buff = (uint16_t*)calloc(GWORK.real_geigertime, sizeof(uint16_t));
 	free(GWORK.stat_buff);
@@ -127,36 +112,14 @@ void Update_rad_buffer(){
 	}
 }
 
-void Save_dose(){
+void Set_setting(uint32_t *value, uint32_t new_value){ *value = new_value; }
 
-}
-
-void Save_tone(){
-
-}
-
-void Save_backlight(){
-
-}
-
-void Save_contrast(){
-
-}
-
-void Save_geiger_time(){
-
-}
-
-void Save_geiger_error(){
-
-}
-
-void Save_dose_save_interval(){
-
-}
-
-void Save_alarm_threshold(){
-
+void Accept_settings(){
+	if(Write_configuration()){
+		LCD_SetContrast(DevNVRAM.GSETTING.LCD_CONTRAST);
+		GFLAGS.is_muted = !(bool)DevNVRAM.GSETTING.BUZZER_TONE;
+		Update_rad_buffer();
+	}
 }
 
 void Reset_to_defaults(){
@@ -212,53 +175,109 @@ bool is_memory_valid(){
 	return 0;
 }
 
+size_t GetRamFree(){
+	size_t clear_blocks = 0;
+	uint32_t l_Address = RAM_START_ADDR;
+	while(l_Address < 0x20005000){
+		if(*(__IO uint32_t *)l_Address == 0x00000000 || *(__IO uint32_t *)l_Address == 0xFFFFFFFF) clear_blocks++;
+		l_Address = l_Address + 4;
+	}
+	return clear_blocks * 4;
+}
+
+size_t GetRomFree(){
+	size_t clear_blocks = 0;
+	uint32_t l_Address = FLASH_START_ADDR;
+	while(l_Address < 0x08010000){
+		if(*(__IO uint32_t *)l_Address == 0x00000000 || *(__IO uint32_t *)l_Address == 0xFFFFFFFF) clear_blocks++;
+		l_Address = l_Address + 4;
+	}
+	return clear_blocks * 4;
+}
+
 bool Read_configuration(){
-	//configfile config;
+	volatile uint32_t readed_mem;
 
-	Read_memory("config.ini");
+	volatile uint32_t l_Address, l_Error, l_Index;
 
-	/*open_config(&config, configdata);
-	tokenize_config(&config);
-	GSETTING.GEIGER_ERROR = get_token_by_name(&config, "GEIGER_ERROR").token_value;
-	GSETTING.GEIGER_TIME = get_token_by_name(&config, "GEIGER_TIME").token_value;
-	GSETTING.GEIGER_VOLTAGE = get_token_by_name(&config, "TRANSFORMER_PWM").token_value;
-	GSETTING.LCD_CONTRAST = get_token_by_name(&config, "LCD_CONTRAST").token_value;
-	GSETTING.LCD_BACKLIGHT = get_token_by_name(&config, "LCD_BACKLIGHT").token_value;
-	GSETTING.BUZZER_TONE = get_token_by_name(&config, "BUZZER_TONE").token_value;
-	GSETTING.ACTIVE_COUNTERS = get_token_by_name(&config, "ACTIVE_COUNTERS").token_value;
-	GWORK.rad_sum = get_token_by_name(&config, "CUMULATIVE_DOSE").token_value;
-	GMODE.counter_mode = get_token_by_name(&config, "COUNTER_MODE").token_value;
-	GSETTING.SAVE_DOSE_INTERVAL = get_token_by_name(&config, "SAVE_DOSE_INTERVAL").token_value;
-	GSETTING.ALARM_THRESHOLD = get_token_by_name(&config, "ALARM_THRESHOLD").token_value;
-	close_config(&config);*/
-	return 0;
+	l_Address = FLASH_CONFIG_START_ADDR;
+	l_Error = 0x00;
+	l_Index = 0x00;
+	while(l_Address < FLASH_CONFIG_END_ADDR){
+		readed_mem = *(__IO uint32_t *)l_Address;
+		DevNVRAM.data32[l_Index] = readed_mem;
+		l_Index = l_Index+1;
+		l_Address = l_Address + 4;
+	}
+
+	if(DevNVRAM.GSETTING.CONFIG_KEY != GOOD_CONFIG_KEY){
+		memset(DevNVRAM.data32, 0, sizeof(DevNVRAM.data32));
+
+		DevNVRAM.GSETTING.CONFIG_KEY = GOOD_CONFIG_KEY;
+		DevNVRAM.GSETTING.GEIGER_TIME = 21;
+		DevNVRAM.GSETTING.GEIGER_ERROR = 2;
+		DevNVRAM.GSETTING.GEIGER_VOLTAGE = 400;
+		DevNVRAM.GSETTING.LCD_CONTRAST = 15;
+		DevNVRAM.GSETTING.LCD_BACKLIGHT = 1;
+		DevNVRAM.GSETTING.BUZZER_TONE = 1;
+		DevNVRAM.GSETTING.ACTIVE_COUNTERS = 1;
+		DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL = 10;
+		DevNVRAM.GSETTING.ALARM_THRESHOLD = 100;
+		DevNVRAM.GSETTING.rad_sum = 0;
+	}
 }
 
 bool Write_configuration(){
-	//configfile config;
+	static FLASH_EraseInitTypeDef EraseInitStruct;
+	EraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES;
+	EraseInitStruct.PageAddress = FLASH_CONFIG_START_ADDR;
+	EraseInitStruct.NbPages = 0x01;
 
-	//Read_memory("config.ini");
+	volatile uint32_t l_Address, l_Error, l_Index;
 
-	/*open_config(&config, configdata);
-	tokenize_config(&config);
-	edit_token(&config, "GEIGER_ERROR", GSETTING.GEIGER_ERROR);
-	edit_token(&config, "GEIGER_TIME", GSETTING.GEIGER_TIME);
-	edit_token(&config, "TRANSFORMER_PWM", GSETTING.GEIGER_VOLTAGE);
-	edit_token(&config, "LCD_CONTRAST", GSETTING.LCD_CONTRAST);
-	edit_token(&config, "LCD_BACKLIGHT", GSETTING.LCD_BACKLIGHT);
-	edit_token(&config, "BUZZER_TONE", GSETTING.BUZZER_TONE);
-	edit_token(&config, "ACTIVE_COUNTERS", GSETTING.ACTIVE_COUNTERS);
-	edit_token(&config, "CUMULATIVE_DOSE", GWORK.rad_sum);
-	edit_token(&config, "COUNTER_MODE", GMODE.counter_mode);
-	edit_token(&config, "SAVE_DOSE_INTERVAL", GSETTING.SAVE_DOSE_INTERVAL);
-	edit_token(&config, "ALARM_THRESHOLD", GSETTING.ALARM_THRESHOLD);
-	write_config(&config);
-	close_config(&config);*/
-	return 0;
+	l_Address = FLASH_CONFIG_START_ADDR;
+	l_Error = 0x00;
+	l_Index = 0x00;
+	while(l_Address < FLASH_CONFIG_END_ADDR){
+		if(DevNVRAM.data32[l_Index] != *(__IO uint32_t*)l_Address) l_Error += 1;
+		l_Index = l_Index+1;
+		l_Address = l_Address + 4;
+	}
+
+	if(l_Error > 0){
+		HAL_FLASH_Unlock();
+		HAL_FLASHEx_Erase(&EraseInitStruct, &l_Error);
+
+		l_Address = FLASH_CONFIG_START_ADDR;
+		l_Error = 0x00;
+		l_Index = 0x00;
+		DevNVRAM.sector.NWrite = DevNVRAM.sector.NWrite + 1;
+		while(l_Address < FLASH_CONFIG_END_ADDR){
+			//LL_GPIO_SetOutputPin(GPIOC, LL_GPIO_PIN_13);
+			LL_mDelay(1);
+			if(HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, l_Address, DevNVRAM.data32[l_Index]) == HAL_OK){
+				l_Index = l_Index+1;
+				l_Address = l_Address + 4;
+			}
+			//LL_GPIO_ResetOutputPin(GPIOC, LL_GPIO_PIN_13);
+			//LL_mDelay(10);
+		}
+		HAL_FLASH_Lock();
+	}else{
+		return false;
+	}
+
+	return true;
+}
+
+void Init_configuration(){
+	Read_configuration();
+	Write_configuration();
 }
 
 void Reset_dose(){
-
+	DevNVRAM.GSETTING.rad_sum = 0;
+	ReadWrite_configuration();
 }
 
 void Reset_activity_test(){

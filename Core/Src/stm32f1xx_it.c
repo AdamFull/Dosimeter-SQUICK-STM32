@@ -58,7 +58,7 @@ extern geiger_flags GFLAGS;
 extern geiger_meaning GMEANING;
 extern geiger_work GWORK;
 extern geiger_mode GMODE;
-extern geiger_settings GSETTING;
+extern NVRAM DevNVRAM;
 extern geiger_ui GUI;
 /* USER CODE END PV */
 
@@ -228,10 +228,10 @@ void SysTick_Handler(void)
 void EXTI1_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI1_IRQn 0 */
-	if(GSETTING.ACTIVE_COUNTERS == 1 || GSETTING.ACTIVE_COUNTERS == 3){
+	if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 1 || DevNVRAM.GSETTING.ACTIVE_COUNTERS == 3){
 		if(GMODE.counter_mode==0){    //Режим поиска
 			if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-			if(++GWORK.rad_sum>999999UL*3600/GWORK.real_geigertime) GWORK.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
+			if(++DevNVRAM.GSETTING.rad_sum>999999UL*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
 			if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
 		}else if(GMODE.counter_mode==1){							//Режим измерения активности
 			if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
@@ -260,10 +260,10 @@ void EXTI1_IRQHandler(void)
 void EXTI2_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI2_IRQn 0 */
-	if(GSETTING.ACTIVE_COUNTERS == 2 || GSETTING.ACTIVE_COUNTERS == 3){
+	if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 2 || DevNVRAM.GSETTING.ACTIVE_COUNTERS == 3){
 		if(GMODE.counter_mode==0){    //Режим поиска
 			if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-			if(++GWORK.rad_sum>999999UL*3600/GWORK.real_geigertime) GWORK.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
+			if(++DevNVRAM.GSETTING.rad_sum>999999UL*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
 			if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
 		}else if(GMODE.counter_mode==1){							//Режим измерения активности
 			if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
@@ -292,10 +292,10 @@ void EXTI2_IRQHandler(void)
 void EXTI3_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI3_IRQn 0 */
-	if(GSETTING.ACTIVE_COUNTERS == 0){
+	if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 0){
 		if(GMODE.counter_mode==0){    //Режим поиска
 			if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-			if(++GWORK.rad_sum>999999UL*3600/GWORK.real_geigertime) GWORK.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
+			if(++DevNVRAM.GSETTING.rad_sum>999999UL*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
 			if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
 		}else if(GMODE.counter_mode==1){							//Режим измерения активности
 			if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
@@ -368,7 +368,7 @@ void TIM1_UP_IRQHandler(void)
 		if(GWORK.stat_time > GWORK.real_geigertime) GWORK.stat_time = 0; //Счётчик для расчёта статистической погрешности
 		else GWORK.stat_time++;
 
-		GWORK.rad_dose=(GWORK.rad_sum*GWORK.real_geigertime/3600); //расчитаем дозу
+		GWORK.rad_dose=(DevNVRAM.GSETTING.rad_sum*GWORK.real_geigertime/3600); //расчитаем дозу
 
 		GUI.mass[GUI.x_p]=map(GWORK.rad_back, 0, GWORK.rad_max < 40 ? 40 : GWORK.rad_max, 0, 19);
 		//for(uint8_t i=0;i<96;i++) GUI.mass[i]=GUI.mass[i] * sqrt(GWORK.rad_back/GWORK.rad_max);

@@ -18,7 +18,7 @@ extern geiger_ui GUI;
 extern geiger_mode GMODE;
 extern geiger_meaning GMEANING;
 extern geiger_work GWORK;
-extern geiger_settings GSETTING;
+extern NVRAM DevNVRAM;
 extern geiger_flags GFLAGS;
 
 #define BAT_ADC_MIN 50
@@ -88,7 +88,7 @@ void draw_main(){
 	}else{
 		if(GMODE.counter_mode == 0){
 			LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);
-			uint16_t deviation = map(100-(GMEANING.mean/(GMEANING.mean+GMEANING.std))*100, 0, 100, GSETTING.GEIGER_ERROR, 100);
+			uint16_t deviation = map(100-(GMEANING.mean/(GMEANING.mean+GMEANING.std))*100, 0, 100, DevNVRAM.GSETTING.GEIGER_ERROR, 100);
 			if(deviation > 100) deviation = 100;
 
 			LCD_SetCharSize(2);
@@ -190,7 +190,7 @@ void draw_simple_menu_page(const char** punct_names, size_t punct_count){
 	}
 }
 
-void draw_editable_menu_page(const char** punct_names, uint8_t* punct_values, char* postfixes, size_t punct_count){
+void draw_editable_menu_page(const char** punct_names, uint16_t* punct_values, char* postfixes, size_t punct_count){
 	for(size_t i = 0; i < punct_count; i++){
 		LCD_SetCursor(0, 10+9*i);
 		if (GUI.cursor==i) LCD_print(T_CURSOR);
@@ -264,7 +264,7 @@ void draw_menu(){
 		//Меню настроек
 		case 2:{
 			const char* current_page_puncts[4] = {S_GCOUNTER, S_ADVANCED, S_TONE, S_BACKLIGHT};
-			const bool punct_values[4] = {false, false, GFLAGS.is_muted, GSETTING.LCD_BACKLIGHT};
+			const bool punct_values[4] = {false, false, GFLAGS.is_muted, (bool)DevNVRAM.GSETTING.LCD_BACKLIGHT};
 			const bool skip_flags[4] = {true, true, false, false};
 			draw_checkbox_menu_page(current_page_puncts, punct_values, skip_flags, 4);
 		}break;
@@ -287,15 +287,15 @@ void draw_menu(){
 	        }break;
 	        //Кастомные настройки счётчика
 	        case 6:{
-	        	const char* current_page_puncts[3] = {S_GTIME, S_ERROR, S_VOLTAGE};
-	        	const uint8_t current_page_values[3] = {GSETTING.GEIGER_TIME, GSETTING.GEIGER_ERROR, GSETTING.GEIGER_VOLTAGE};
-	        	const char current_page_postfixes[3] = {'s', '%', 'V'};
-	        	draw_editable_menu_page(current_page_puncts, current_page_values, current_page_postfixes, 3);
+	        	const char* current_page_puncts[4] = {S_GTIME, S_ERROR, S_VOLTAGE, S_GEIGER_MODE};
+	        	const uint16_t current_page_values[4] = {DevNVRAM.GSETTING.GEIGER_TIME, DevNVRAM.GSETTING.GEIGER_ERROR, DevNVRAM.GSETTING.GEIGER_VOLTAGE, DevNVRAM.GSETTING.ACTIVE_COUNTERS};
+	        	const char current_page_postfixes[4] = {'s', '%', 'V', ' '};
+	        	draw_editable_menu_page(current_page_puncts, current_page_values, current_page_postfixes, 4);
 	        }break;
 	        //Advanced settings
 	        case 7:{
 	        	const char* current_page_puncts[asettings_puncts] = {S_CONTRAST, S_DOSE_SAVE, S_ALARM};
-	        	const uint8_t current_page_values[asettings_puncts] = {GSETTING.LCD_CONTRAST, GSETTING.SAVE_DOSE_INTERVAL, GSETTING.ALARM_THRESHOLD};
+	        	const uint16_t current_page_values[asettings_puncts] = {DevNVRAM.GSETTING.LCD_CONTRAST, DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL, DevNVRAM.GSETTING.ALARM_THRESHOLD};
 	        	const char current_page_postfixes[3] = {' ', ' ', ' '};
 	        	draw_editable_menu_page(current_page_puncts, current_page_values, current_page_postfixes, 3);
 	        }break;

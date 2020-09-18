@@ -67,7 +67,7 @@ extern geiger_flags GFLAGS;
 extern geiger_meaning GMEANING;
 extern geiger_work GWORK;
 extern geiger_mode GMODE;
-extern geiger_settings GSETTING;
+extern NVRAM DevNVRAM;
 extern geiger_ui GUI;
 
 LCD_CONFIG lcd_config_g;
@@ -103,20 +103,21 @@ void move_cursor(bool direction, bool editable, bool menu_mode){
 		if(direction){
 			if(GUI.menu_page == 4){
 				switch (GUI.cursor){
-					case 0:{ GUI.editable++; }break;
+					case 0:{ if(GUI.editable < 30) GUI.editable++; }break;
 					case 1:{ if(GUI.editable < 1) GUI.editable++; }break;
 				}
 			}else if(GUI.menu_page == 6){
 				switch (GUI.cursor){
-					case 0:{ if(GUI.editable < 100) GUI.editable++; } break;
-					case 1:{ if(GUI.editable < 40) GUI.editable++; } break;
+					case 0:{ if(GUI.editable < 250) GUI.editable++; } break;
+					case 1:{ if(GUI.editable < 40) GUI.editable+=5; } break;
 					case 2:{ if(GUI.editable < 500) GUI.editable+=10; } break;
+					case 3:{ if(GUI.editable < 3) GUI.editable++; } break;
 				}
 			}else if(GUI.menu_page == 7){
 				switch (GUI.cursor){
 					case 0:{ if(GUI.editable < 31) GUI.editable++; } break;
-					case 1:{ if(GUI.editable < 255) GUI.editable+=5; } break;
-					case 2:{ if(GUI.editable < 5) GUI.editable+=5; } break;
+					case 1:{ if(GUI.editable < 500) GUI.editable+=5; } break;
+					case 2:{ if(GUI.editable < 500) GUI.editable+=10; } break;
 				}
 			}
 		}else{
@@ -127,15 +128,16 @@ void move_cursor(bool direction, bool editable, bool menu_mode){
 				}
 			}else if(GUI.menu_page == 6){
 				switch (GUI.cursor){
-					case 0:{ if(GUI.editable > 1) GUI.editable--; } break;
-					case 1:{ if(GUI.editable > 1) GUI.editable--; } break;
-					case 2:{ if(GUI.editable > 100) GUI.editable-=5; } break;
+					case 0:{ if(GUI.editable > 5) GUI.editable--; } break;
+					case 1:{ if(GUI.editable > 5) GUI.editable-=5; } break;
+					case 2:{ if(GUI.editable > 100) GUI.editable-=10; } break;
+					case 3:{ if(GUI.editable > 0) GUI.editable--; } break;
 				}
 			}else if(GUI.menu_page == 7){
 				switch (GUI.cursor){
 					case 0:{ if(GUI.editable > 5) GUI.editable--; } break;
 					case 1:{ if(GUI.editable > 5) GUI.editable-=5; } break;
-					case 2:{ if(GUI.editable > 100) GUI.editable-=10; } break;
+					case 2:{ if(GUI.editable > 30) GUI.editable-=10; } break;
 				}
 			}
 		}
@@ -149,7 +151,7 @@ void move_cursor(bool direction, bool editable, bool menu_mode){
 					case 3:{ if(GUI.cursor < 2) GUI.cursor++; } break;
 					case 4:{ if(GUI.cursor < 2) GUI.cursor++; } break;
 					case 5:{ if(GUI.cursor < 1) GUI.cursor++; } break;
-					case 6:{ if(GUI.cursor < 2) GUI.cursor++; } break;
+					case 6:{ if(GUI.cursor < 3) GUI.cursor++; } break;
 					case 7:{ if(GUI.cursor < 2) GUI.cursor++; } break;
 				}
 			}
@@ -166,23 +168,28 @@ void cursor_select(bool direction, bool editable, bool menu_mode){
 	if(direction){
 		if(editable){
 			GFLAGS.is_detected = true;
-			if(GUI.menu_page == 4){
+			if(GUI.menu_page == 2){
+				switch (GUI.cursor){
+				case 1:{ Set_setting(&DevNVRAM.GSETTING.BUZZER_TONE, (uint32_t)GUI.editable); }break;
+				case 2:{ Set_setting(&DevNVRAM.GSETTING.LCD_BACKLIGHT, (uint32_t)GUI.editable); }break;
+				}
+			}else if(GUI.menu_page == 4){
 				switch (GUI.cursor){
 					case 0:{ GWORK.time_min = GUI.editable; }break;
 					case 1:{ GMODE.means_times = GUI.editable; }break;
 				}
 			}else if(GUI.menu_page == 6){
 				switch (GUI.cursor){
-					case 0:{ /*Save_time();*/ }break;
-					case 1:{ /*Save_error();*/ }break;
+					case 0:{ Set_setting(&DevNVRAM.GSETTING.GEIGER_TIME, (uint32_t)GUI.editable); }break;
+					case 1:{ Set_setting(&DevNVRAM.GSETTING.GEIGER_ERROR, (uint32_t)GUI.editable); }break;
+					case 2:{ Set_setting(&DevNVRAM.GSETTING.GEIGER_VOLTAGE, (uint32_t)GUI.editable); }break;
+					case 3:{ Set_setting(&DevNVRAM.GSETTING.ACTIVE_COUNTERS, (uint32_t)GUI.editable); }break;
 				}
-			}else{
+			}else if(GUI.menu_page == 7){
 				switch (GUI.cursor){
-					case 1:{ /*Save_tone();*/ }break;
-					case 2:{ /*Save_bl();*/ }break;
-					case 3:{ /*Save_contrast();*/ }break;
-					case 4:{ /*Save_interval();*/ }break;
-					case 5:{ /*Save_alarm();*/ }break;
+					case 0:{ Set_setting(&DevNVRAM.GSETTING.LCD_CONTRAST, (uint32_t)GUI.editable); }break;
+					case 1:{ Set_setting(&DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL, (uint32_t)GUI.editable); }break;
+					case 2:{ Set_setting(&DevNVRAM.GSETTING.ALARM_THRESHOLD, (uint32_t)GUI.editable); }break;
 				}
 			}
 			GFLAGS.is_editing_mode = false;
@@ -215,7 +222,7 @@ void cursor_select(bool direction, bool editable, bool menu_mode){
 						case 0:{ GUI.menu_page = 6; }break;
 						case 1:{ GUI.menu_page = 7; }break;
 						case 2:{ GFLAGS.is_muted = !GFLAGS.is_muted; }break;
-						case 3:{ GSETTING.LCD_BACKLIGHT = !GSETTING.LCD_BACKLIGHT; }break;
+						case 3:{ DevNVRAM.GSETTING.LCD_BACKLIGHT = !DevNVRAM.GSETTING.LCD_BACKLIGHT; }break;
 					}
 					return;
 				}break;
@@ -252,17 +259,18 @@ void cursor_select(bool direction, bool editable, bool menu_mode){
 					}break;
 					case 6:{
 						switch (GUI.cursor){
-							case 0:{ GUI.editable = GSETTING.GEIGER_TIME; }break;
-							case 1:{ GUI.editable = GSETTING.GEIGER_ERROR; }break;
-							case 2:{ GUI.editable = GSETTING.GEIGER_VOLTAGE; }break;
+							case 0:{ GUI.editable = DevNVRAM.GSETTING.GEIGER_TIME; }break;
+							case 1:{ GUI.editable = DevNVRAM.GSETTING.GEIGER_ERROR; }break;
+							case 2:{ GUI.editable = DevNVRAM.GSETTING.GEIGER_VOLTAGE; }break;
+							case 3:{ GUI.editable = DevNVRAM.GSETTING.ACTIVE_COUNTERS; }break;
 						}
 						GFLAGS.is_editing_mode = true;
 					}break;
 					case 7:{
 						switch(GUI.cursor){
-							case 0:{ GUI.editable = GSETTING.LCD_CONTRAST; }break;
-							case 1:{ GUI.editable = GSETTING.SAVE_DOSE_INTERVAL; }break;
-							case 2:{ GUI.editable = GSETTING.ALARM_THRESHOLD; }break;
+							case 0:{ GUI.editable = DevNVRAM.GSETTING.LCD_CONTRAST; }break;
+							case 1:{ GUI.editable = DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL; }break;
+							case 2:{ GUI.editable = DevNVRAM.GSETTING.ALARM_THRESHOLD; }break;
 						}
 						GFLAGS.is_editing_mode = true;
 					}
@@ -301,7 +309,9 @@ void button_action(){
 		if(menu_mode && !GFLAGS.is_editing_mode){										//Если находимся в меню
 			GFLAGS.is_detected = true;
 			if(GUI.menu_page == 0) {GUI.page = 1; GFLAGS.do_alarm = false;}
+			else if(GUI.menu_page == 2) { Accept_settings(); GUI.menu_page = 0; }
 			else if(GUI.menu_page == 6) GUI.menu_page = 2;
+			else if(GUI.menu_page == 7) GUI.menu_page = 2;
 			else GUI.menu_page = 0;
 			GUI.cursor = 0;
 		}
@@ -394,7 +404,7 @@ int main(void)
   //if(error_detector == NO_ERROR){
 
 	  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
-	  //HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+	  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
 	  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
 
 	  adc_init();
@@ -411,10 +421,13 @@ int main(void)
   gbuttonInit(&btn_set, GPIOB, GPIO_PIN_4, HIGH_PULL, NORM_OPEN);
   gbuttonInit(&btn_reset, GPIOB, GPIO_PIN_5, HIGH_PULL, NORM_OPEN);
 
+  //реализовать режимы энергосбережения в зависимости от уровня заряда и установленного в настройках
+  //От этого будет зависеть частота процессора и яркость подсветки если она включена
+
   setClickTimeout(&btn_reset, 100);
   setClickTimeout(&btn_set, 100);
-  setTimeout(&btn_reset, 1000);
-  setTimeout(&btn_set, 1000);
+  setTimeout(&btn_reset, 500);
+  setTimeout(&btn_set, 500);
 
   LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_13);
 
@@ -452,18 +465,23 @@ int main(void)
 	//if(is_low_voltage) low_battery_kill();
 
 	if(!GFLAGS.is_charging){
-		if(get_high_voltage() < HV_ADC_REQ) { GWORK.transformer_pwm++; }
-		else { GWORK.transformer_pwm--; }
-		pwm_transformer(GWORK.transformer_pwm);
-		if((GWORK.rad_back > GSETTING.ALARM_THRESHOLD) && !GFLAGS.no_alarm && (GMODE.counter_mode == 0)) { GFLAGS.do_alarm = true; }
+		if(DevNVRAM.GSETTING.ACTIVE_COUNTERS != 0){
+			if(get_high_voltage() < HV_ADC_REQ) { GWORK.transformer_pwm++; }
+			else { GWORK.transformer_pwm--; }
+			pwm_transformer(GWORK.transformer_pwm);
+		}else{
+			pwm_transformer(0);
+		}
+
+		if((GWORK.rad_back > DevNVRAM.GSETTING.ALARM_THRESHOLD) && !GFLAGS.no_alarm && (GMODE.counter_mode == 0)) { GFLAGS.do_alarm = true; }
 		else { if(GMODE.counter_mode == 0) GFLAGS.do_alarm = false; }
-		if(!GFLAGS.do_alarm) pwm_backlight(GSETTING.LCD_BACKLIGHT);
+		if(!GFLAGS.do_alarm){ if((bool)DevNVRAM.GSETTING.LCD_BACKLIGHT){ pwm_backlight(255); } else {pwm_backlight(0);} }
 		if(!GFLAGS.no_alarm) {
 			if(GFLAGS.do_alarm){
 				if(millis()-GWORK.alarm_timer > 300){
 					GWORK.alarm_timer = millis();
 					pwm_tone(GFLAGS.is_alarm ? 100 : 200);
-					pwm_backlight(GFLAGS.is_alarm ? 204 : 0);
+					pwm_backlight(GFLAGS.is_alarm ? 255 : 0);
 					GFLAGS.is_alarm = !GFLAGS.is_alarm;
 				}
 			}
@@ -472,15 +490,16 @@ int main(void)
 		draw_update();
 
 		if(GMODE.counter_mode==0){
-			if(GWORK.rad_dose - GWORK.rad_dose_old > GSETTING.SAVE_DOSE_INTERVAL){
+			if(GWORK.rad_dose - GWORK.rad_dose_old > DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL){
 				GWORK.rad_dose_old = GWORK.rad_dose;
-				Save_dose();
+
 				GWORK.rad_max = GWORK.rad_back;
 			}
 		}
 	}else{
-		//ADCManager::pwm_PD3(0);
-		//ADCManager::pwm_PB3(0);
+		pwm_transformer(0);
+		pwm_tone(0);
+		pwm_backlight(0);
 	}
   }
     /* USER CODE END WHILE */
@@ -806,6 +825,10 @@ static void MX_TIM2_Init(void)
   {
     Error_Handler();
   }
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
   {
     Error_Handler();
@@ -983,9 +1006,14 @@ static void MX_GPIO_Init(void)
   LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /**/
-  GPIO_InitStruct.Pin = SPI1_RST_Pin|LL_GPIO_PIN_11|BSET_Pin|BRSET_Pin;
+  GPIO_InitStruct.Pin = SPI1_RST_Pin|BSET_Pin|BRSET_Pin;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = LL_GPIO_PULL_UP;
+  LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /**/
+  GPIO_InitStruct.Pin = LL_GPIO_PIN_11;
+  GPIO_InitStruct.Mode = LL_GPIO_MODE_FLOATING;
   LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /**/

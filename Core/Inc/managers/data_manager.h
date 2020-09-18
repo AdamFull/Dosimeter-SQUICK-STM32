@@ -12,23 +12,44 @@
 #include "stdint.h"
 #include "stm32f1xx.h"
 
+#define FLASH_START_ADDR ((uint32_t)0x08000000)
+#define RAM_START_ADDR ((uint32_t)0x20000000)
+#define FLASH_CONFIG_START_ADDR ((uint32_t)0x0800F000)
+#define FLASH_CONFIG_END_ADDR FLASH_CONFIG_START_ADDR + FLASH_PAGE_SIZE
+#define GOOD_CONFIG_KEY 0x2000CA32
+
 typedef const char* string;
 
+struct FLASH_sector{
+	uint8_t data[2048-8];
+	uint32_t NWrite;
+	uint32_t CheckSum;
+};
+
 typedef struct {
-	uint8_t GEIGER_ERROR;
-	uint8_t GEIGER_TIME;
-	uint16_t GEIGER_VOLTAGE;
+	uint32_t CONFIG_KEY;
+	uint32_t GEIGER_TIME;
+	uint32_t GEIGER_ERROR;
+	uint32_t GEIGER_VOLTAGE;
 
-	uint8_t LCD_CONTRAST;
-	bool LCD_BACKLIGHT;
+	uint32_t LCD_CONTRAST;
+	uint32_t LCD_BACKLIGHT;
 
-	uint16_t BUZZER_TONE;
+	uint32_t BUZZER_TONE;
 
-	uint8_t ACTIVE_COUNTERS;	//0 - external, 1 - first, 2 - second, 3 - first + second together
-	uint8_t SAVE_DOSE_INTERVAL;
-	uint8_t ALARM_THRESHOLD;
+	uint32_t ACTIVE_COUNTERS;	//0 - external, 1 - first, 2 - second, 3 - first + second together
+	uint32_t SAVE_DOSE_INTERVAL;
+	uint32_t ALARM_THRESHOLD;
+
+	uint32_t rad_sum;
 
 } geiger_settings;
+
+typedef union {
+	geiger_settings GSETTING;
+	struct FLASH_sector sector;
+	uint32_t data32[11];
+} NVRAM;
 
 typedef struct {
 	uint8_t time_min_old;
@@ -41,12 +62,12 @@ typedef struct {
 	volatile uint16_t timer_time, timer_remain;
 
 	uint64_t rad_dose_old;
-	volatile uint64_t rad_sum, rad_back, rad_max, rad_dose;
+	volatile uint64_t rad_back, rad_max, rad_dose;
 
 	unsigned long alarm_timer;
 
 	uint16_t *rad_buff;
-	uint32_t *stat_buff;		//Buffer for contain current stat values
+	uint16_t *stat_buff;		//Buffer for contain current stat values
 } geiger_work;
 
 typedef struct {
@@ -89,6 +110,7 @@ typedef struct {
 	bool is_detected;
 	bool is_memory_initialized;
 	bool active_hv_gen;
+	bool is_settings_readed;
 
 	bool is_mean_mode;
 } geiger_flags;
@@ -104,15 +126,12 @@ void Initialize_variables();
 void Initialize_data();
 void Update_rad_buffer();
 
-void Save_dose();
-void Save_tone();
-void Save_backlight();
-void Save_contrast();
-void Save_geiger_time();
-void Save_geiger_error();
-void Save_dose_save_interval();
-void Save_alarm_threshold();
+void Set_setting(uint32_t *value, uint32_t new_value);
+void Accept_settings();
 void Reset_to_defaults();
+
+size_t GetRamFree();
+size_t GetRomFree();
 
 bool Init_memory();
 bool Setup_memory();
@@ -122,6 +141,8 @@ bool is_memory_valid();
 
 bool Read_configuration();
 bool Write_configuration();
+
+void Save_dose();
 
 
 void Reset_dose();

@@ -75,6 +75,7 @@ const char* S_ERROR = "Error:";
 const char* S_POFF = "Sleep";
 const char* S_SURE = "Sure?";
 const char* S_ABOUT = "About";
+const char* S_GEIGER_MODE = "Counter mode:";
 #endif
 
 const char* T_URH = "uR/h";
