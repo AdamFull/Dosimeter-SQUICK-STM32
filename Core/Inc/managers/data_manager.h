@@ -20,12 +20,6 @@
 
 typedef const char* string;
 
-struct FLASH_sector{
-	uint8_t data[2048-8];
-	uint32_t NWrite;
-	uint32_t CheckSum;
-};
-
 typedef struct {
 	uint32_t CONFIG_KEY;
 	uint32_t GEIGER_TIME;
@@ -41,14 +35,15 @@ typedef struct {
 	uint32_t SAVE_DOSE_INTERVAL;
 	uint32_t ALARM_THRESHOLD;
 
+	uint32_t w25qxx_address;
+
 	uint32_t rad_sum;
 
 } geiger_settings;
 
 typedef union {
 	geiger_settings GSETTING;
-	struct FLASH_sector sector;
-	uint32_t data32[11];
+	uint32_t data32[12];
 } NVRAM;
 
 typedef struct {
@@ -61,8 +56,8 @@ typedef struct {
 	uint16_t transformer_pwm;
 	volatile uint16_t timer_time, timer_remain;
 
-	uint64_t rad_dose_old;
-	volatile uint64_t rad_back, rad_max, rad_dose;
+	unsigned rad_dose_old;
+	volatile unsigned rad_back, rad_max, rad_dose;
 
 	unsigned long alarm_timer;
 
@@ -110,17 +105,20 @@ typedef struct {
 	bool is_detected;
 	bool is_memory_initialized;
 	bool active_hv_gen;
-	bool is_settings_readed;
+	bool is_satellites_found;
+	bool is_tracking_enabled;
 
 	bool is_mean_mode;
 } geiger_flags;
 
 typedef  enum {
-	NO_ERROR,
-	FLASH_MEMORY_ERROR,
-	HEAP_INITIALIZATION_ERROR,
+	INIT_COMPLETE,
+	EXT_MEMORY_INIT_ERROR,
+	EXT_MEMORY_IS_OVERFLOW,
+	WRITE_CONFIG_ERROR,
+	HEAP_INIT_ERROR,
 
-} DMGRESULT;
+} DINITSTATUS;
 
 void Initialize_variables();
 void Initialize_data();
@@ -130,17 +128,16 @@ void Set_setting(uint32_t *value, uint32_t new_value);
 void Accept_settings();
 void Reset_to_defaults();
 
-size_t GetRamFree();
-size_t GetRomFree();
-
-bool Init_memory();
-bool Setup_memory();
-string Read_memory(string file_name);
-bool Write_memory(string file_name, string file_data);
-bool is_memory_valid();
+uint32_t GetRamFree();
+uint32_t GetRomFree();
 
 bool Read_configuration();
 bool Write_configuration();
+
+bool Init_w25qxx();
+bool Write_string_w25qxx(char* str);
+bool Read_string_w25qxx(uint32_t addr);
+bool Erase_w25qxx();
 
 void Save_dose();
 

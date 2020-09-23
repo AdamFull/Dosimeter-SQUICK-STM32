@@ -9,13 +9,10 @@
 #include "managers/data_manager.h"
 #include "stdlib.h"
 #include "math.h"
-#include "fatfs.h"
 #include "string.h"
 #include "libs/LCD_1202.h"
+#include "libs/w25qxx.h"
 
-//#include "parser.h"
-
-//geiger_settings GSETTING;
 NVRAM DevNVRAM;
 geiger_work GWORK;
 geiger_meaning GMEANING;
@@ -23,17 +20,7 @@ geiger_flags GFLAGS;
 geiger_mode GMODE;
 geiger_ui GUI;
 
-DMGRESULT error_detector;
-
-extern uint8_t retUSER;
-extern FATFS USERFatFS;
-extern FIL USERFile;
-extern FATFS *pfs;
-extern FRESULT fres;
-extern DWORD fre_clust;
-extern uint32_t total_memory, free_memory;
-
-size_t free_rom, free_ram;
+DINITSTATUS device_status;
 
 void Initialize_variables(){
 
@@ -83,14 +70,83 @@ void Initialize_variables(){
 
 }
 
+uint8_t* separate_uint32_t(uint32_t value){
+	static uint8_t bytes[4];
+	bytes[0] = (value >> 24) & 0xFF;
+	bytes[1] = (value >> 16) & 0xFF;
+	bytes[2] = (value >> 8) & 0xFF;
+	bytes[3] = value & 0xFF;
+	return bytes;
+}
+
+bool Write_4byte(uint32_t value, uint32_t start_address){
+	uint8_t *bytes = separate_uint32_t(value);
+	uint32_t current_addr = start_address;
+	for(size_t i = 0; i < 4; i++) {
+		W25qxx_WriteByte(bytes[i], current_addr);
+		current_addr++;
+	}
+	return true;
+}
+
+uint32_t Read_4byte(uint32_t start_address){
+	uint32_t value;
+	uint8_t bytes[4];
+	uint32_t current_addr = start_address;
+	for(size_t i = 0; i < 4; i++) {
+		W25qxx_ReadByte(&bytes[i], current_addr);
+		current_addr++;
+	}
+	value = (uint32_t) (bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3]);
+	return value;
+}
+
+bool Init_w25qxx(){
+	uint8_t first_byte;
+	if(W25qxx_Init()){
+		Read_configuration();
+		Write_configuration();
+		return true;
+	}
+	return false;
+}
+
+bool Write_string_w25qxx(char* str){
+	if((w25qxx.CapacityInKiloByte*1024) - (DevNVRAM.GSETTING.w25qxx_address + strlen(str)) > 0){
+		for(size_t i = 0; i < strlen(str); i++){
+			W25qxx_WriteByte(str[i], DevNVRAM.GSETTING.w25qxx_address);
+			DevNVRAM.GSETTING.w25qxx_address++;
+		}
+		Write_configuration();
+		return true;
+	}else{		//Memory not enougth
+		device_status = EXT_MEMORY_IS_OVERFLOW;
+		return false;
+	}
+
+}
+
+bool Read_string_w25qxx(uint32_t addr){
+
+}
+
+bool Erase_w25qxx(){
+	uint8_t first_byte;
+	W25qxx_EraseChip();
+	Write_configuration();
+	W25qxx_ReadByte(&first_byte, 0x00);
+	return (first_byte == 0x0 || first_byte == 0xFF);
+}
+
 void Initialize_data(){
 	Initialize_variables();
-	Init_configuration();
-	GFLAGS.is_memory_initialized = Init_memory();
-	Reset_activity_test();
-	Update_rad_buffer();
-	free_ram = GetRamFree();
-	free_rom = GetRomFree();
+	if(Init_w25qxx()){
+		Reset_activity_test();
+		Update_rad_buffer();
+		device_status = INIT_COMPLETE;
+	}else{
+		device_status = EXT_MEMORY_INIT_ERROR;
+	}
 }
 
 void Update_rad_buffer(){
@@ -108,7 +164,7 @@ void Update_rad_buffer(){
 		GWORK.time_min = 1;
 		for(unsigned i = 0; i < 83; i++) GUI.mass[i] = 0;
 	}else{
-		error_detector = HEAP_INITIALIZATION_ERROR;
+		device_status = HEAP_INIT_ERROR;
 	}
 }
 
@@ -119,6 +175,8 @@ void Accept_settings(){
 		LCD_SetContrast(DevNVRAM.GSETTING.LCD_CONTRAST);
 		GFLAGS.is_muted = !(bool)DevNVRAM.GSETTING.BUZZER_TONE;
 		Update_rad_buffer();
+	}else{
+
 	}
 }
 
@@ -126,56 +184,7 @@ void Reset_to_defaults(){
 
 }
 
-bool Init_memory(){
-	FRESULT mount_status;
-	FRESULT space_status = mount_status  = FR_INT_ERR;
-
-	if(retUSER == 0) {
-		mount_status = f_mount(&USERFatFS, "", 1);
-		if(mount_status == FR_OK){
-			space_status = f_getfree("", &fre_clust, &pfs);
-			total_memory = (uint32_t)((pfs->n_fatent - 2) * pfs->csize * 0.5);
-			free_memory = (uint32_t)(fre_clust * pfs->csize * 0.5);
-			mount_status = mount_status & space_status;
-		}
-	}
-	return mount_status == FR_OK;
-
-}
-
-bool Setup_memory(){
-	if(free_memory < 1);
-	return 0;
-}
-
-string Read_memory(string file_name){
-	FRESULT open_status = FR_DENIED;
-	uint32_t file_size;
-	if(free_memory < 1){
-		open_status = f_open(&USERFile, file_name, FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
-		file_size = f_size(&USERFile);
-		//f_read(fp, buff, btr, br);
-	}
-
-	return "";
-}
-
-bool Write_memory(string file_name, string file_data){
-	FRESULT open_status = FR_DENIED;
-	if(free_memory < 1){
-		open_status = f_open(&USERFile, file_name, FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
-		if(open_status == FR_OK){
-			//f_write(&USERFile, file_data, btw, bw)
-		}
-	}
-	return open_status == FR_OK ? true : false;
-}
-
-bool is_memory_valid(){
-	return 0;
-}
-
-size_t GetRamFree(){
+uint32_t GetRamFree(){
 	size_t clear_blocks = 0;
 	uint32_t l_Address = RAM_START_ADDR;
 	while(l_Address < 0x20005000){
@@ -185,8 +194,8 @@ size_t GetRamFree(){
 	return clear_blocks * 4;
 }
 
-size_t GetRomFree(){
-	size_t clear_blocks = 0;
+uint32_t GetRomFree(){
+	uint32_t clear_blocks = 0;
 	uint32_t l_Address = FLASH_START_ADDR;
 	while(l_Address < 0x08010000){
 		if(*(__IO uint32_t *)l_Address == 0x00000000 || *(__IO uint32_t *)l_Address == 0xFFFFFFFF) clear_blocks++;
@@ -196,15 +205,13 @@ size_t GetRomFree(){
 }
 
 bool Read_configuration(){
-	volatile uint32_t readed_mem;
+	uint32_t readed_mem;
 
-	volatile uint32_t l_Address, l_Error, l_Index;
+	uint32_t l_Address, l_Index;
 
-	l_Address = FLASH_CONFIG_START_ADDR;
-	l_Error = 0x00;
-	l_Index = 0x00;
-	while(l_Address < FLASH_CONFIG_END_ADDR){
-		readed_mem = *(__IO uint32_t *)l_Address;
+	l_Address = 0x00;
+	while(l_Address < 0x04*12){
+		readed_mem = Read_4byte(l_Address);
 		DevNVRAM.data32[l_Index] = readed_mem;
 		l_Index = l_Index+1;
 		l_Address = l_Address + 4;
@@ -224,55 +231,40 @@ bool Read_configuration(){
 		DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL = 10;
 		DevNVRAM.GSETTING.ALARM_THRESHOLD = 100;
 		DevNVRAM.GSETTING.rad_sum = 0;
+		DevNVRAM.GSETTING.w25qxx_address = 0x00001000;
+
+		//Memory is clear, first init. Writing columns
+		char* str = "BACK,DOSE,HWR,MIN,SEC,LAT,LON\n";
+		Write_string_w25qxx(str);
+		Write_configuration();
 	}
 }
 
 bool Write_configuration(){
-	static FLASH_EraseInitTypeDef EraseInitStruct;
-	EraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES;
-	EraseInitStruct.PageAddress = FLASH_CONFIG_START_ADDR;
-	EraseInitStruct.NbPages = 0x01;
+	uint32_t l_Address, l_Index, l_Error;
 
-	volatile uint32_t l_Address, l_Error, l_Index;
-
-	l_Address = FLASH_CONFIG_START_ADDR;
-	l_Error = 0x00;
+	l_Address = 0x00;
 	l_Index = 0x00;
-	while(l_Address < FLASH_CONFIG_END_ADDR){
-		if(DevNVRAM.data32[l_Index] != *(__IO uint32_t*)l_Address) l_Error += 1;
+	l_Error = 0x00;
+	while(l_Address < 0x04*12){
+		if(DevNVRAM.data32[l_Index] != Read_4byte(l_Address)) l_Error++;
 		l_Index = l_Index+1;
 		l_Address = l_Address + 4;
 	}
 
+	l_Address = 0x00;
+	l_Index = 0x00;
 	if(l_Error > 0){
-		HAL_FLASH_Unlock();
-		HAL_FLASHEx_Erase(&EraseInitStruct, &l_Error);
-
-		l_Address = FLASH_CONFIG_START_ADDR;
-		l_Error = 0x00;
-		l_Index = 0x00;
-		DevNVRAM.sector.NWrite = DevNVRAM.sector.NWrite + 1;
-		while(l_Address < FLASH_CONFIG_END_ADDR){
-			//LL_GPIO_SetOutputPin(GPIOC, LL_GPIO_PIN_13);
-			LL_mDelay(1);
-			if(HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, l_Address, DevNVRAM.data32[l_Index]) == HAL_OK){
+		W25qxx_EraseSector(0x1000);
+		while(l_Address < 0x04*12){
+			if(Write_4byte(DevNVRAM.data32[l_Index], l_Address)){
 				l_Index = l_Index+1;
 				l_Address = l_Address + 4;
 			}
-			//LL_GPIO_ResetOutputPin(GPIOC, LL_GPIO_PIN_13);
-			//LL_mDelay(10);
 		}
-		HAL_FLASH_Lock();
-	}else{
-		return false;
 	}
 
 	return true;
-}
-
-void Init_configuration(){
-	Read_configuration();
-	Write_configuration();
 }
 
 void Reset_dose(){

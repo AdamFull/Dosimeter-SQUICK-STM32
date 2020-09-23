@@ -23,13 +23,13 @@
 #include "stm32f1xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "usbd_cdc_if.h"
 #include "stdbool.h"
 #include "managers/data_manager.h"
 #include "util.h"
+#include "libs/GPS.h"
+#include "util.h"
 /* USER CODE END Includes */
-
-/* External functions --------------------------------------------------------*/
-void SystemClock_Config(void);
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN TD */
@@ -48,10 +48,9 @@ void SystemClock_Config(void);
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-volatile unsigned long millis_counter;
 
 
-extern volatile unsigned long millis_timer;
+volatile unsigned long ticks;
 extern uint16_t battery_adc_value, high_voltage_adc_value;
 
 extern geiger_flags GFLAGS;
@@ -60,6 +59,11 @@ extern geiger_work GWORK;
 extern geiger_mode GMODE;
 extern NVRAM DevNVRAM;
 extern geiger_ui GUI;
+
+extern GPS_t GPS;
+
+extern USBD_CDC_ItfTypeDef USBD_Interface_fops_FS;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -70,20 +74,11 @@ extern geiger_ui GUI;
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-void ADC_ConvCpltCallback(void)
-{
-
-}
-
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern TIM_HandleTypeDef htim1;
-extern TIM_HandleTypeDef htim2;
-extern TIM_HandleTypeDef htim3;
 extern PCD_HandleTypeDef hpcd_USB_FS;
 /* USER CODE BEGIN EV */
-
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -207,7 +202,7 @@ void PendSV_Handler(void)
 void SysTick_Handler(void)
 {
   /* USER CODE BEGIN SysTick_IRQn 0 */
-
+	IncTick();
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */
@@ -228,25 +223,25 @@ void SysTick_Handler(void)
 void EXTI1_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI1_IRQn 0 */
-	if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 1 || DevNVRAM.GSETTING.ACTIVE_COUNTERS == 3){
-		if(GMODE.counter_mode==0){    //Режим поиска
-			if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-			if(++DevNVRAM.GSETTING.rad_sum>999999UL*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
-			if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
-		}else if(GMODE.counter_mode==1){							//Режим измерения активности
-			if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
-		}else if(GMODE.counter_mode==2){							//Режим измерения активности
-			if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-			GUI.update_required = true;
-		}
-		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
-	}
+
   /* USER CODE END EXTI1_IRQn 0 */
   if (LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_1) != RESET)
   {
     LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_1);
     /* USER CODE BEGIN LL_EXTI_LINE_1 */
-
+    if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 1 || DevNVRAM.GSETTING.ACTIVE_COUNTERS == 3){
+    	if(GMODE.counter_mode==0){    //Режим поиска
+    		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
+    		if(++DevNVRAM.GSETTING.rad_sum>999999UL*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
+    		if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
+    	}else if(GMODE.counter_mode==1){							//Режим измерения активности
+    		if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
+    	}else if(GMODE.counter_mode==2){							//Режим измерения активности
+    		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
+    		GUI.update_required = true;
+    	}
+    		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
+	}
     /* USER CODE END LL_EXTI_LINE_1 */
   }
   /* USER CODE BEGIN EXTI1_IRQn 1 */
@@ -260,25 +255,25 @@ void EXTI1_IRQHandler(void)
 void EXTI2_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI2_IRQn 0 */
-	if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 2 || DevNVRAM.GSETTING.ACTIVE_COUNTERS == 3){
-		if(GMODE.counter_mode==0){    //Режим поиска
-			if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-			if(++DevNVRAM.GSETTING.rad_sum>999999UL*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
-			if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
-		}else if(GMODE.counter_mode==1){							//Режим измерения активности
-			if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
-		}else if(GMODE.counter_mode==2){							//Режим измерения активности
-			if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-			GUI.update_required = true;
-		}
-		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
-	}
+
   /* USER CODE END EXTI2_IRQn 0 */
   if (LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_2) != RESET)
   {
     LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_2);
     /* USER CODE BEGIN LL_EXTI_LINE_2 */
-
+    if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 2 || DevNVRAM.GSETTING.ACTIVE_COUNTERS == 3){
+    	if(GMODE.counter_mode==0){    //Режим поиска
+    		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
+    			if(++DevNVRAM.GSETTING.rad_sum>999999UL*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
+    			if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
+    	}else if(GMODE.counter_mode==1){							//Режим измерения активности
+    		if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
+    	}else if(GMODE.counter_mode==2){							//Режим измерения активности
+    		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
+    		GUI.update_required = true;
+    	}
+    		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
+	}
     /* USER CODE END LL_EXTI_LINE_2 */
   }
   /* USER CODE BEGIN EXTI2_IRQn 1 */
@@ -292,25 +287,25 @@ void EXTI2_IRQHandler(void)
 void EXTI3_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI3_IRQn 0 */
-	if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 0){
-		if(GMODE.counter_mode==0){    //Режим поиска
-			if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-			if(++DevNVRAM.GSETTING.rad_sum>999999UL*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
-			if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
-		}else if(GMODE.counter_mode==1){							//Режим измерения активности
-			if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
-		}else if(GMODE.counter_mode==2){							//Режим измерения активности
-			if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-			GUI.update_required = true;
-		}
-		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
-	}
+
   /* USER CODE END EXTI3_IRQn 0 */
   if (LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_3) != RESET)
   {
     LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_3);
     /* USER CODE BEGIN LL_EXTI_LINE_3 */
-
+    if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 0){
+    	if(GMODE.counter_mode==0){    //Режим поиска
+    		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
+    		if(++DevNVRAM.GSETTING.rad_sum>999999UL*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
+    		if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
+    	}else if(GMODE.counter_mode==1){							//Режим измерения активности
+    		if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
+    	}else if(GMODE.counter_mode==2){							//Режим измерения активности
+    		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
+    		GUI.update_required = true;
+    	}
+				//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
+	}
     /* USER CODE END LL_EXTI_LINE_3 */
   }
   /* USER CODE BEGIN EXTI3_IRQn 1 */
@@ -339,12 +334,28 @@ void ADC1_2_IRQHandler(void)
 }
 
 /**
+  * @brief This function handles USB low priority or CAN RX0 interrupts.
+  */
+void USB_LP_CAN1_RX0_IRQHandler(void)
+{
+  /* USER CODE BEGIN USB_LP_CAN1_RX0_IRQn 0 */
+  /* USER CODE END USB_LP_CAN1_RX0_IRQn 0 */
+  HAL_PCD_IRQHandler(&hpcd_USB_FS);
+  /* USER CODE BEGIN USB_LP_CAN1_RX0_IRQn 1 */
+
+  /* USER CODE END USB_LP_CAN1_RX0_IRQn 1 */
+}
+
+/**
   * @brief This function handles TIM1 update interrupt.
   */
 void TIM1_UP_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM1_UP_IRQn 0 */
 	//update_request();
+	  if(LL_TIM_IsActiveFlag_UPDATE(TIM1)){
+		  LL_TIM_ClearFlag_UPDATE(TIM1);
+	  }
 
 	uint32_t tmp_buff=0;
 
@@ -408,7 +419,6 @@ void TIM1_UP_IRQHandler(void)
 			GWORK.rad_buff[0]=0; //сбрасываем счетчик импульсов
 		}
   /* USER CODE END TIM1_UP_IRQn 0 */
-  HAL_TIM_IRQHandler(&htim1);
   /* USER CODE BEGIN TIM1_UP_IRQn 1 */
   GUI.update_required = true;
   /* USER CODE END TIM1_UP_IRQn 1 */
@@ -422,48 +432,34 @@ void TIM2_IRQHandler(void)
   /* USER CODE BEGIN TIM2_IRQn 0 */
 
   /* USER CODE END TIM2_IRQn 0 */
-  HAL_TIM_IRQHandler(&htim2);
   /* USER CODE BEGIN TIM2_IRQn 1 */
 
   /* USER CODE END TIM2_IRQn 1 */
 }
 
 /**
-  * @brief This function handles TIM3 global interrupt.
+  * @brief This function handles USART1 global interrupt.
   */
-void TIM3_IRQHandler(void)
+void USART1_IRQHandler(void)
 {
-  /* USER CODE BEGIN TIM3_IRQn 0 */
-  //millis_counter++;
-  //if(millis_counter > 1000){
-	//  millis_counter = 0;
-	  millis_timer++;
-  //}
-  /* USER CODE END TIM3_IRQn 0 */
-  HAL_TIM_IRQHandler(&htim3);
-  /* USER CODE BEGIN TIM3_IRQn 1 */
+  /* USER CODE BEGIN USART1_IRQn 0 */
+	if(LL_USART_IsActiveFlag_RXNE(USART1) && LL_USART_IsEnabledIT_RXNE(USART1)){
+		GPS_CallBack();
+	}else{
+		if(LL_USART_IsActiveFlag_ORE(USART1)){
+	      (void) USART1->DR;
+	    }else if(LL_USART_IsActiveFlag_FE(USART1)){
+	      (void) USART1->DR;
+	    }else if(LL_USART_IsActiveFlag_NE(USART1)){
+	      (void) USART1->DR;
+	    }
+	}
 
-  /* USER CODE END TIM3_IRQn 1 */
-}
 
-/**
-  * @brief This function handles USB wake-up interrupt through EXTI line 18.
-  */
-void USBWakeUp_IRQHandler(void)
-{
-  /* USER CODE BEGIN USBWakeUp_IRQn 0 */
+  /* USER CODE END USART1_IRQn 0 */
+  /* USER CODE BEGIN USART1_IRQn 1 */
 
-  /* USER CODE END USBWakeUp_IRQn 0 */
-  if ((&hpcd_USB_FS)->Init.low_power_enable) {
-    /* Reset SLEEPDEEP bit of Cortex System Control Register */
-    SCB->SCR &= (uint32_t)~((uint32_t)(SCB_SCR_SLEEPDEEP_Msk | SCB_SCR_SLEEPONEXIT_Msk));
-    SystemClock_Config();
-  }
-  /* Clear EXTI pending bit */
-  __HAL_USB_WAKEUP_EXTI_CLEAR_FLAG();
-  /* USER CODE BEGIN USBWakeUp_IRQn 1 */
-
-  /* USER CODE END USBWakeUp_IRQn 1 */
+  /* USER CODE END USART1_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */

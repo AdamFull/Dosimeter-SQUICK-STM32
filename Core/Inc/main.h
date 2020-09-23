@@ -39,6 +39,7 @@ extern "C" {
 #include "stm32f1xx_ll_pwr.h"
 #include "stm32f1xx_ll_dma.h"
 #include "stm32f1xx_ll_spi.h"
+#include "stm32f1xx_ll_tim.h"
 #include "stm32f1xx_ll_usart.h"
 #include "stm32f1xx.h"
 #include "stm32f1xx_ll_gpio.h"
@@ -63,8 +64,6 @@ extern "C" {
 
 /* USER CODE END EM */
 
-void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
-
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
 
@@ -82,6 +81,12 @@ void Error_Handler(void);
 #define GINT3_Pin LL_GPIO_PIN_3
 #define GINT3_GPIO_Port GPIOA
 #define GINT3_EXTI_IRQn EXTI3_IRQn
+#define SPI1_CS_Pin LL_GPIO_PIN_4
+#define SPI1_CS_GPIO_Port GPIOA
+#define SPI1_SCK_Pin LL_GPIO_PIN_5
+#define SPI1_SCK_GPIO_Port GPIOA
+#define SPI1_MOSI_Pin LL_GPIO_PIN_7
+#define SPI1_MOSI_GPIO_Port GPIOA
 #define SPI1_RST_Pin LL_GPIO_PIN_0
 #define SPI1_RST_GPIO_Port GPIOB
 #define BSET_Pin LL_GPIO_PIN_4

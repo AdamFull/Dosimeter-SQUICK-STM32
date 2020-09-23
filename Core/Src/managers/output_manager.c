@@ -12,7 +12,11 @@
 #include "libs/LCD_1202.h"
 
 #include "language.h"
+#include "libs/GFX_font.h"
 #include "util.h"
+
+#include "libs/w25qxx.h"
+#include "libs/GPS.h"
 
 extern geiger_ui GUI;
 extern geiger_mode GMODE;
@@ -20,6 +24,8 @@ extern geiger_meaning GMEANING;
 extern geiger_work GWORK;
 extern NVRAM DevNVRAM;
 extern geiger_flags GFLAGS;
+
+extern GPS_t GPS;
 
 #define BAT_ADC_MIN 50
 #define BAT_ADC_MAX 200
@@ -53,131 +59,132 @@ void draw_logo(){
 
 }
 
+void draw_statusbar(const char** bitmaps, bool* bitmap_enabled, size_t size){
+	size_t cur_index = 0;
+	for(size_t i = 0; i < size; i++){
+		if(bitmap_enabled[i]){
+			LCD_DrawBitmap(LCD_X-9, 9+9*cur_index, bitmaps[i], 8, 8, COLOR_BLACK);
+			cur_index++;
+		}
+	}
+}
+
 void draw_main(){
 	LCD_Clear();
-	int coeff = mapfloat(GMEANING.current_battery_voltage, BAT_ADC_MIN, BAT_ADC_MAX, 0, 12);             //Значение сдвига пикселей для визуализации заряда аккумулятора
+	int coeff = mapfloat(GMEANING.current_battery_voltage, 0, 4096, 0, 8);             //Значение сдвига пикселей для визуализации заряда аккумулятора
 	bool show_battery = false;
 
 	//отрисовка этой части занимает 1.87 кб
 
-	/*if(!datamgr->is_charging && !show_battery){
-		display.drawBitmap(69, 0, battery_Bitmap, 15, 7, BLACK);
-		display.fillRect(83-coeff, 1, 12, 5, BLACK);
-	}
-	if(datamgr->is_charging) display.drawBitmap(60, 0, charge_Bitmap, 7, 7, BLACK);
-
-	if(!datamgr->mute && !datamgr->is_charging) display.drawBitmap(0, 0, speaker_Bitmap, 7, 7, BLACK);
-	if(!datamgr->no_alarm && !datamgr->is_charging) display.drawBitmap(8, 0, alarm_Bitmap, 7, 7, BLACK);
-	if(datamgr->mean_mode && !datamgr->is_charging) display.drawBitmap(17, 0, mean_Bitmap, 7, 7, BLACK);*/
-
-	if(show_battery){
-		//display.drawBitmap(17, 12, big_battery_Bitmap, 50, 24, BLACK);
-		//LCD_SetCursor(20, 21);
-		//LCD_write(mapfloat(datamgr->battery_voltage, BAT_ADC_MIN, BAT_ADC_MAX, 3.6, 4.2));
-		//LCD_write("/");
-		//LCD_write(map(datamgr->battery_voltage, BAT_ADC_MIN, BAT_ADC_MAX, 0, 100));
-	}else if(false){
-		//uint8_t progress = map(datamgr->battery_voltage, BAT_ADC_MIN, BAT_ADC_MAX, 0, 42);
-		//display.drawBitmap(17, 12, big_battery_Bitmap, 50, 24, BLACK);
-		//display.fillRect(19, 14, progress, 20, BLACK);
-		//LCD_SetCursor(0, 0);
-		//LCD_write("V:");
-		//LCD_write(mapfloat(datamgr->battery_voltage, BAT_ADC_MIN, BAT_ADC_MAX, 3.6, 4.2));
-		//LCD_SetCursor(0, 38);
-		//if(datamgr->is_charged) LCD_write(SUCCESS);
-	}else{
-		if(GMODE.counter_mode == 0){
-			LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);
-			uint16_t deviation = map(100-(GMEANING.mean/(GMEANING.mean+GMEANING.std))*100, 0, 100, DevNVRAM.GSETTING.GEIGER_ERROR, 100);
-			if(deviation > 100) deviation = 100;
-
-			LCD_SetCharSize(2);
-			LCD_SetCursor(0, 8);
-			if(GWORK.rad_back > 1000) LCD_write((float)GWORK.rad_back/1000, true);
-			else if(GWORK.rad_back > 1000000) LCD_write((float)GWORK.rad_back/1000000, true);
-			else LCD_write(GWORK.rad_back, false);
-
-			LCD_SetCharSize(0);
-			LCD_AddToCursor(0, 3);
-			LCD_JustDrawChar(0x60);
-			LCD_write(deviation, false);
-			LCD_print("%");
-
-			LCD_SetCursor(0, 23);
-			if(GWORK.rad_back > 1000) LCD_print(T_MRH);
-			else if(GWORK.rad_back > 1000000) LCD_print(T_RH);
-			else LCD_print(T_URH);
-
-			LCD_SetCharSize(0);
-			LCD_SetCursor(0, 33);
-			LCD_write(GWORK.rad_max, false);
-			LCD_SetCursor(0, 40);
-			LCD_print(T_MAX);
-
-			LCD_DrawFastHLine(0,31,20,COLOR_BLACK);
-			LCD_DrawFastHLine(0,48,20,COLOR_BLACK);
-
-			LCD_SetCursor(0, 50);
-			if(GWORK.rad_dose > 1000) LCD_write((float)GWORK.rad_dose/1000, true);
-			else if(GWORK.rad_dose > 1000000) LCD_write((float)GWORK.rad_dose/1000000, true);
-			else LCD_write(GWORK.rad_dose, false);
-			if(GWORK.rad_dose > 1000) LCD_print(T_MR);
-			else if(GWORK.rad_dose > 1000000) LCD_print(T_R);
-			else LCD_print(T_UR);
-			LCD_SetCursor(0, 58);
-			LCD_print(S_DOSE);
-
-			draw_graph();
-		}else if(GMODE.counter_mode == 1){
-			LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);
-			LCD_SetCursor(0, 0);
-			if(!GFLAGS.next_step) LCD_print(S_BACKGROUND);
-			else LCD_print(S_SAMPLE);
-			LCD_SetCharSize(2);
-			LCD_SetCursor(0, 8);
-			if(GFLAGS.stop_timer && GFLAGS.next_step) LCD_write(abs((int)GWORK.rad_max - (int)GWORK.rad_back), false);
-			else LCD_write(GWORK.rad_back, false);
-			LCD_SetCharSize(0);
-			LCD_SetCursor(LCD_X/2 - (getNumOfDigits(GWORK.time_min)+getNumOfDigits(GWORK.time_sec)+1)*3, 23);
-			LCD_write(GWORK.time_min, false);
-			LCD_print(":");
-			LCD_write(GWORK.time_sec, false);
-			LCD_DrawFastHLine(0,48, LCD_X, COLOR_BLACK);
-			LCD_FillRect(0, 50, map(GWORK.timer_remain, GWORK.timer_time, 0, 0, LCD_X), 16, COLOR_BLACK);
-			//LCD_DrawFastHLine(0,LCD_Y-1,LCD_X,COLOR_BLACK);
-			LCD_SetTextColor(COLOR_WHITE, COLOR_BLACK);
-			LCD_SetCursor(LCD_X - strlen(S_PRESSSET), 54);
-			if(GFLAGS.stop_timer && !GFLAGS.next_step) LCD_print(S_PRESSSET);
-			LCD_SetCursor(LCD_X - strlen(S_SUCCESS), 54);
-			if(GFLAGS.stop_timer && GFLAGS.next_step) LCD_print(S_SUCCESS);
-		}else if(GMODE.counter_mode == 2){
-			LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);
-			LCD_SetCursor(0, 0);
-			LCD_print(S_MODE_SEC);
-			LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);
-			LCD_SetCharSize(2);
-			LCD_SetCursor(0, 9);
-			LCD_write(GWORK.rad_buff[0], false);
-
-			LCD_SetCharSize(0);
-			LCD_SetCursor(0, 23);
-			LCD_print(T_CPS);
-
-			LCD_SetCursor(0, 33);
-			LCD_write(GWORK.sum_old, false);
-			LCD_SetCursor(0, 41);
-			LCD_print(T_OLD);
-
-			LCD_SetCursor(0, 51);
-			LCD_write(GWORK.rad_max, false);
-			LCD_SetCursor(0, 59);
-			LCD_print(T_MAX);
-
-			LCD_DrawFastHLine(0,31,20,COLOR_BLACK);
-			LCD_DrawFastHLine(0,49,20,COLOR_BLACK);
-
-			draw_graph();
+	if(!GFLAGS.is_charging && !show_battery){
+		if(!GFLAGS.is_charging){
+			LCD_DrawBitmap(LCD_X-11, 1, battery_bitmap, 10, 8, COLOR_BLACK);
+			LCD_FillRect(LCD_X-10, 3, coeff, 4, COLOR_BLACK);
+		}else{
+			LCD_DrawBitmap(LCD_X-11, 1, charge_bitmap, 10, 8, COLOR_BLACK);
 		}
+	}
+
+	const char* bitmap_array[5] = {unmuted_bitmap, bell_bitmap, backlight_bitmap, satellite_bitmap, death_bitmap};
+	bool bitmap_status[5] = {GFLAGS.is_muted, !GFLAGS.no_alarm, (bool)(DevNVRAM.GSETTING.LCD_BACKLIGHT), GFLAGS.is_satellites_found, GFLAGS.do_alarm };
+	draw_statusbar(bitmap_array, bitmap_status, 5);
+
+	LCD_SetCursor(LCD_X/2 - 5*2.5 , 0);
+	if(GPS.GPGGA.UTC_Hour + UTC < 10) LCD_JustDrawChar('0');
+	LCD_write(GPS.GPGGA.UTC_Hour + UTC, false);
+	LCD_JustDrawChar(':');
+	if(GPS.GPGGA.UTC_Min < 10) LCD_JustDrawChar('0');
+	LCD_write(GPS.GPGGA.UTC_Min, false);
+
+	if(GMODE.counter_mode == 0){
+		LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);
+		uint16_t deviation = map(100-(GMEANING.mean/(GMEANING.mean+GMEANING.std))*100, 0, 100, DevNVRAM.GSETTING.GEIGER_ERROR, 100);
+		if(deviation > 100) deviation = 100;
+
+		LCD_SetCharSize(2);
+		LCD_SetCursor(0, 8);
+		if(GWORK.rad_back > 1000) LCD_write((float)GWORK.rad_back/1000, true);
+		else if(GWORK.rad_back > 1000000) LCD_write((float)GWORK.rad_back/1000000, true);
+		else LCD_write(GWORK.rad_back, false);
+
+		LCD_SetCharSize(0);
+		LCD_AddToCursor(0, 3);
+		LCD_JustDrawChar(0x60);
+		LCD_write(deviation, false);
+		LCD_print("%");
+
+		LCD_SetCursor(0, 23);
+		if(GWORK.rad_back > 1000) LCD_print(T_MRH);
+		else if(GWORK.rad_back > 1000000) LCD_print(T_RH);
+		else LCD_print(T_URH);
+
+		LCD_SetCharSize(0);
+		LCD_SetCursor(0, 33);
+		LCD_write(GWORK.rad_max, false);
+		LCD_SetCursor(0, 40);
+		LCD_print(T_MAX);
+
+		LCD_DrawFastHLine(0,31,20,COLOR_BLACK);
+		LCD_DrawFastHLine(0,48,20,COLOR_BLACK);
+
+		LCD_SetCursor(0, 50);
+		if(GWORK.rad_dose > 1000) LCD_write((float)GWORK.rad_dose/1000, true);
+		else if(GWORK.rad_dose > 1000000) LCD_write((float)GWORK.rad_dose/1000000, true);
+		else LCD_write(GWORK.rad_dose, false);
+		if(GWORK.rad_dose > 1000) LCD_print(T_MR);
+		else if(GWORK.rad_dose > 1000000) LCD_print(T_R);
+		else LCD_print(T_UR);
+		LCD_SetCursor(0, 58);
+		LCD_print(S_DOSE);
+
+		draw_graph();
+	}else if(GMODE.counter_mode == 1){
+		LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);
+		LCD_SetCursor(0, 0);
+		if(!GFLAGS.next_step) LCD_print(S_BACKGROUND);
+		else LCD_print(S_SAMPLE);
+		LCD_SetCharSize(2);
+		LCD_SetCursor(0, 8);
+		if(GFLAGS.stop_timer && GFLAGS.next_step) LCD_write(abs((int)GWORK.rad_max - (int)GWORK.rad_back), false);
+		else LCD_write(GWORK.rad_back, false);
+		LCD_SetCharSize(0);
+		LCD_SetCursor((LCD_X/2) - (getNumOfDigits(GWORK.time_min)+getNumOfDigits(GWORK.time_sec)+1)*3, 40);
+		LCD_write(GWORK.time_min, false);
+		LCD_print(":");
+		LCD_write(GWORK.time_sec, false);
+		LCD_FillRect(0, 50, map(GWORK.timer_remain, GWORK.timer_time, 0, 0, LCD_X), 16, COLOR_BLACK);
+		LCD_SetTextColor(COLOR_WHITE, COLOR_BLACK);
+		LCD_SetCursor((LCD_X/2) - strlen(S_PRESSSET)*2.5, 54);
+		if(GFLAGS.stop_timer && !GFLAGS.next_step) LCD_print(S_PRESSSET);
+		LCD_SetCursor((LCD_X/2) - strlen(S_SUCCESS)*2.5, 54);
+		if(GFLAGS.stop_timer && GFLAGS.next_step) LCD_print(S_SUCCESS);
+	}else if(GMODE.counter_mode == 2){
+		LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);
+		LCD_SetCursor(0, 0);
+		LCD_print(S_MODE_SEC);
+		LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);
+		LCD_SetCharSize(2);
+		LCD_SetCursor(0, 9);
+		LCD_write(GWORK.rad_buff[0], false);
+
+		LCD_SetCharSize(0);
+		LCD_SetCursor(0, 23);
+		LCD_print(T_CPS);
+
+		LCD_SetCursor(0, 33);
+		LCD_write(GWORK.sum_old, false);
+		LCD_SetCursor(0, 41);
+		LCD_print(T_OLD);
+
+		LCD_SetCursor(0, 51);
+		LCD_write(GWORK.rad_max, false);
+		LCD_SetCursor(0, 59);
+		LCD_print(T_MAX);
+
+		LCD_DrawFastHLine(0,31,20,COLOR_BLACK);
+		LCD_DrawFastHLine(0,49,20,COLOR_BLACK);
+
+		draw_graph();
 	}
 	LCD_Update();
 }
@@ -232,7 +239,7 @@ void draw_graph(){
 }
 
 void draw_menu(){
-	const char* current_page_name[PAGES] = {S_MENU, S_MODE, S_SETTINGS, S_RESET, S_ACTIVITY, S_SURE, S_GCOUNTER, S_ADVANCED, S_ABOUT};
+	/*const char* current_page_name[PAGES] = {S_MENU, S_MODE, S_SETTINGS, S_RESET, S_ACTIVITY, S_SURE, S_GCOUNTER, S_ADVANCED, S_ABOUT};
 	LCD_SetCharSize(0);
 	const char *page_name = current_page_name[GUI.menu_page];
 	#if defined(RU)
@@ -300,11 +307,23 @@ void draw_menu(){
 	        	draw_editable_menu_page(current_page_puncts, current_page_values, current_page_postfixes, 3);
 	        }break;
 	        case 8:{
-	        	LCD_print("Firmwave: v1.0");
+	        	uint8_t ext_mem = map((w25qxx.CapacityInKiloByte*1024) - DevNVRAM.GSETTING.w25qxx_address, 0, (w25qxx.CapacityInKiloByte*1024), 0, 100);
+	        	LCD_print("Ext mem free:");
+	        	LCD_SetCursor(LCD_X - (getNumOfDigits(ext_mem)+1)*5, 10);
+	        	LCD_write(ext_mem, false);
+	        	LCD_JustDrawChar('%');
 	        	LCD_SetCursor(0, 20);
-	        	LCD_print("Device name: SQUICK");
+	        	LCD_print("Device ram free:");
+	        	ext_mem = map(GetRamFree(), 0, 20*1024, 0, 100);
+	        	LCD_SetCursor(LCD_X - (getNumOfDigits(ext_mem)+1)*5, 20);
+	        	LCD_write(ext_mem, false);
+	        	LCD_JustDrawChar('%');
 	        	LCD_SetCursor(0, 30);
-	        	LCD_print("Device model: 2");
+	        	LCD_print("Device rom free:");
+	        	ext_mem = map(GetRomFree(), 0, 64*1024, 0, 100);
+	        	LCD_SetCursor(LCD_X - (getNumOfDigits(ext_mem)+1)*5, 30);
+	        	LCD_write(ext_mem, false);
+	        	LCD_JustDrawChar('%');
 	        	LCD_SetCursor(0, 40);
 	        	LCD_print("MPU: STM32F103");
 	        	LCD_SetCursor(0, 50);
@@ -314,7 +333,7 @@ void draw_menu(){
 	        	LCD_SetCursor(0, 70);
 	        }break;
 	    }
-	    LCD_Update();
+	    LCD_Update();*/
 }
 
 void draw_bat_low(){

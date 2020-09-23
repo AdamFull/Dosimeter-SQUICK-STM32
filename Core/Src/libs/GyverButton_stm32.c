@@ -104,7 +104,7 @@ void tick(GyverButton* btn) {
 	bool readed_state = (bool)(btn->BTNPORT->IDR & btn->BTNPIN);
 	if (!btn->flags.mode && !btn->flags.noPin) btn->btn_state = !readed_state ^ (btn->flags.inv_state ^ btn->flags.type);
 
-	uint32_t thisMls = millis();
+	uint32_t thisMls = GetTick();
 
 	// нажатие
 	if (btn->btn_state && !btn->btn_flag) {

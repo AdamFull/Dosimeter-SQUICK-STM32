@@ -8,7 +8,8 @@
 #include "util.h"
 #include "math.h"
 
-volatile unsigned long millis_timer;
+extern volatile unsigned long ticks;
+
 
 float mapfloat(float x, float in_min, float in_max, float out_min, float out_max){
 	return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
@@ -18,7 +19,13 @@ long map(long x, long in_min, long in_max, long out_min, long out_max){
 	return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-unsigned long millis(){ return millis_timer; }
+void IncTick(){
+	ticks += 1U;
+}
+
+unsigned long GetTick(){
+	return ticks;
+}
 
 float lerp( float v0,  float v1, float  t){
   return  (1 - t) * v0 + t * v1;

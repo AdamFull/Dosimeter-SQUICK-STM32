@@ -11,4 +11,6 @@
 #define BAT_ADC_MIN 2048
 #define HV_ADC_REQ 2048
 
+#define DEBUG
+
 #endif /* INC_CONFIGURATION_H_ */
