@@ -33,6 +33,7 @@
 #include "libs/GyverButton_stm32.h"
 #include "libs/LCD_1202.h"
 #include "libs/GPS.h"
+#include "libs/w25qxx.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -55,6 +56,7 @@
 /* USER CODE BEGIN PV */
 char rx_buffer[32];
 unsigned long current_millis;
+unsigned long gps_millis;
 
 GyverButton btn_set;
 GyverButton btn_reset;
@@ -69,6 +71,10 @@ extern NVRAM DevNVRAM;
 extern geiger_ui GUI;
 
 LCD_CONFIG lcd_config_g;
+
+uint8_t strbuffer[64];
+
+extern uint8_t current_hour;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -108,6 +114,8 @@ void move_cursor(bool direction, bool editable, bool menu_mode){
 					case 0:{ if(GUI.editable < 31) GUI.editable++; } break;
 					case 1:{ if(GUI.editable < 500) GUI.editable+=5; } break;
 					case 2:{ if(GUI.editable < 500) GUI.editable+=10; } break;
+					case 3:{ if(GUI.editable < 12) GUI.editable+=1; } break;
+					case 4:{ if(GUI.editable < 300) GUI.editable+=30; } break;
 				}
 			}
 		}else{
@@ -128,6 +136,8 @@ void move_cursor(bool direction, bool editable, bool menu_mode){
 					case 0:{ if(GUI.editable > 5) GUI.editable--; } break;
 					case 1:{ if(GUI.editable > 5) GUI.editable-=5; } break;
 					case 2:{ if(GUI.editable > 30) GUI.editable-=10; } break;
+					case 3:{ if(GUI.editable > -12) GUI.editable-=1; } break;
+					case 4:{ if(GUI.editable > 30) GUI.editable-=30; } break;
 				}
 			}
 		}
@@ -137,12 +147,12 @@ void move_cursor(bool direction, bool editable, bool menu_mode){
 				switch (GUI.menu_page){
 					case 0:{ if(GUI.cursor < 4) GUI.cursor++; } break;
 					case 1:{ if(GUI.cursor < 2) GUI.cursor++; } break;
-					case 2:{ if(GUI.cursor < 3) GUI.cursor++; } break;
+					case 2:{ if(GUI.cursor < 4) GUI.cursor++; } break;
 					case 3:{ if(GUI.cursor < 2) GUI.cursor++; } break;
 					case 4:{ if(GUI.cursor < 2) GUI.cursor++; } break;
 					case 5:{ if(GUI.cursor < 1) GUI.cursor++; } break;
 					case 6:{ if(GUI.cursor < 3) GUI.cursor++; } break;
-					case 7:{ if(GUI.cursor < 2) GUI.cursor++; } break;
+					case 7:{ if(GUI.cursor < 4) GUI.cursor++; } break;
 				}
 			}
 
@@ -182,6 +192,8 @@ void cursor_select(bool direction, bool editable, bool menu_mode){
 					case 0:{ Set_setting(&DevNVRAM.GSETTING.LCD_CONTRAST, (uint32_t)GUI.editable); }break;
 					case 1:{ Set_setting(&DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL, (uint32_t)GUI.editable); }break;
 					case 2:{ Set_setting(&DevNVRAM.GSETTING.ALARM_THRESHOLD, (uint32_t)GUI.editable); }break;
+					case 3:{ Set_setting(&DevNVRAM.GSETTING.UTC, (uint32_t)GUI.editable); }break;
+					case 4:{ Set_setting(&DevNVRAM.GSETTING.log_save_period, (uint32_t)GUI.editable); }break;
 				}
 			}
 			GFLAGS.is_editing_mode = false;
@@ -215,6 +227,7 @@ void cursor_select(bool direction, bool editable, bool menu_mode){
 						case 1:{ GUI.menu_page = 7; }break;
 						case 2:{ GFLAGS.is_muted = !GFLAGS.is_muted; }break;
 						case 3:{ DevNVRAM.GSETTING.LCD_BACKLIGHT = !DevNVRAM.GSETTING.LCD_BACKLIGHT; }break;
+						case 4:{ GFLAGS.is_tracking_enabled = !GFLAGS.is_tracking_enabled; }break;
 					}
 					return;
 				}break;
@@ -263,6 +276,8 @@ void cursor_select(bool direction, bool editable, bool menu_mode){
 							case 0:{ GUI.editable = DevNVRAM.GSETTING.LCD_CONTRAST; }break;
 							case 1:{ GUI.editable = DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL; }break;
 							case 2:{ GUI.editable = DevNVRAM.GSETTING.ALARM_THRESHOLD; }break;
+							case 3:{ GUI.editable = DevNVRAM.GSETTING.UTC; }break;
+							case 4:{ GUI.editable = DevNVRAM.GSETTING.log_save_period; }break;
 						}
 						GFLAGS.is_editing_mode = true;
 					}
@@ -438,9 +453,48 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  if(strlen(rx_buffer) > 0) CDC_Transmit_FS(rx_buffer, strlen(rx_buffer));
-	  LL_mDelay(1000);
-#ifndef DEBUG
+	current_hour = (GPS.GPGGA.UTC_Hour + DevNVRAM.GSETTING.UTC)%24;
+
+	  if(strlen(rx_buffer) > 0) {
+		  if(strcmp(rx_buffer, "rdlog\n") == 0 && !GFLAGS.log_transfer){
+			  GFLAGS.log_transfer = true;
+			  GFLAGS.is_monitor_enabled = false;
+			  uint32_t l_Address = 0x00001000;
+			  uint32_t l_Index = 0;
+			  char to_append = '\0';
+			  sprintf(strbuffer, "%d\r\n", DevNVRAM.GSETTING.w25qxx_address - l_Address);
+			  LL_mDelay(100);
+			  CDC_Transmit_FS(strbuffer, sizeof(strbuffer));
+			  while(l_Address < DevNVRAM.GSETTING.w25qxx_address){
+				  l_Index = 0;
+				  memset(strbuffer, '\0', sizeof(strbuffer));
+				  do{
+					  W25qxx_ReadByte(&strbuffer[l_Index], l_Address);
+					  l_Address++; l_Index++;
+				  }while(strbuffer[abs(l_Index)] != '\n' && isdigit(strbuffer[abs(l_Index - 1)]));
+				  strncat(strbuffer, &to_append, sizeof(char));
+				  if(strbuffer != NULL) CDC_Transmit_FS(strbuffer, strlen(strbuffer));
+				  //LL_mDelay(10);
+				  delayUs(150);
+			  }
+			  CDC_Transmit_FS("done\r\n", 6);
+		  }else if(strcmp(rx_buffer, "clmem\n") == 0){
+			  CDC_Transmit_FS("Erasing chip.\r\n", 15);
+			  W25qxx_EraseChip();
+			  CDC_Transmit_FS("done\0", 5);
+			  LL_mDelay(1);
+			  CDC_Transmit_FS("Please reconnect device to computer.\r\n", 38);
+			  NVIC_SystemReset();
+		  }else if(strcmp(rx_buffer, "monitor\n") == 0){
+			  GFLAGS.is_monitor_enabled = !GFLAGS.is_monitor_enabled;
+		  }else if(strcmp(rx_buffer, "update\n") == 0){
+			  //https://community.st.com/s/question/0D50X00009XkeeW/stm32l476rg-jump-to-bootloader-from-software
+		  }else if(strcmp(rx_buffer, "rdcfg\n") == 0){
+
+		  }
+		  memset(rx_buffer, 0, sizeof(rx_buffer));
+	  }
+	  GFLAGS.log_transfer = false;
 	button_action();
 
 	GFLAGS.is_charging = !(bool)LL_GPIO_ReadInputPort(GPIOB)&GPIO_IDR_IDR11;
@@ -450,11 +504,17 @@ int main(void)
 		GMEANING.current_battery_voltage = get_battery_voltage();
 		GMEANING.current_high_voltage = get_high_voltage();
 
-		//CDC_Transmit_FS("Hello\r\n", 7);
-		if(GFLAGS.is_satellites_found && GPS.end_convertation == 1 /*&& GFLAGS.is_tracking_enabled*/){
-			char buffer[64];
-			memset(buffer, '\0', 64);
-			//sprintf(buffer, "%u,%u,%u,%u,%u,%lf,%lf\n", GWORK.rad_back, GWORK.rad_dose, GPS.GPGGA.UTC_Hour, GPS.GPGGA.UTC_Min, GPS.GPGGA.UTC_Sec, GPS.GPGGA.LatitudeDecimal, GPS.GPGGA.LongitudeDecimal);
+	}
+
+	if(GetTick() - gps_millis > DevNVRAM.GSETTING.log_save_period * 1000){
+		gps_millis = GetTick();
+
+		if(GFLAGS.is_satellites_found && GPS.end_convertation == 1 && GFLAGS.is_tracking_enabled){
+			uint8_t buffer[64];
+			memset(buffer, 0, sizeof(buffer));
+			sprintf(buffer, "%u,%u,%u,%u,%u,%lf,%lf\n", GWORK.rad_back, GWORK.rad_dose, current_hour, GPS.GPGGA.UTC_Min, GPS.GPGGA.UTC_Sec, GPS.GPGGA.LatitudeDecimal, GPS.GPGGA.LongitudeDecimal);
+			//if(GFLAGS.is_monitor_enabled) CDC_Transmit_FS(buffer, sizeof(buffer));
+			GPS.end_convertation = 0;
 			if(!Write_string_w25qxx(buffer)){
 				//Not enought memory, can't write
 				//Do something
@@ -466,7 +526,7 @@ int main(void)
 	//if(is_low_voltage) low_battery_kill();
 
 	GPS_Process();
-	if(/*!GFLAGS.is_charging*/ true){
+	if(!GFLAGS.is_charging){
 		if(DevNVRAM.GSETTING.ACTIVE_COUNTERS != 0){
 			if(get_high_voltage() < HV_ADC_REQ) { GWORK.transformer_pwm++; }
 			else { GWORK.transformer_pwm--; }
@@ -505,7 +565,6 @@ int main(void)
 		pwm_tone(0);
 		pwm_backlight(0);
 	}
-#endif
   }
     /* USER CODE END WHILE */
 

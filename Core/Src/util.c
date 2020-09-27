@@ -7,9 +7,27 @@
 
 #include "util.h"
 #include "math.h"
+#include "stm32f103xb.h"
 
 extern volatile unsigned long ticks;
 
+
+uint32_t getUs(){
+	uint32_t usTicks = 48000000 / 1000000;
+	register uint32_t ms, cycle_cnt;
+
+	do {
+		ms = GetTick();
+		cycle_cnt = SysTick->VAL;
+	} while (ms != GetTick());
+
+
+	return (ms * 1000) + (usTicks * 1000 - cycle_cnt) / usTicks;
+}
+void delayUs(uint16_t micros) {
+	uint32_t start = getUs();
+	while (getUs()-start < (uint32_t) micros) { asm("nop"); }
+}
 
 float mapfloat(float x, float in_min, float in_max, float out_min, float out_max){
 	return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;

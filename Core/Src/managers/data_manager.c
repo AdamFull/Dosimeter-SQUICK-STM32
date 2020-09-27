@@ -13,6 +13,8 @@
 #include "libs/LCD_1202.h"
 #include "libs/w25qxx.h"
 
+#include "usbd_cdc_if.h"
+
 NVRAM DevNVRAM;
 geiger_work GWORK;
 geiger_meaning GMEANING;
@@ -21,6 +23,8 @@ geiger_mode GMODE;
 geiger_ui GUI;
 
 DINITSTATUS device_status;
+
+uint8_t current_hour;
 
 void Initialize_variables(){
 
@@ -111,7 +115,7 @@ bool Init_w25qxx(){
 	return false;
 }
 
-bool Write_string_w25qxx(char* str){
+bool Write_string_w25qxx(uint8_t* str){
 	if((w25qxx.CapacityInKiloByte*1024) - (DevNVRAM.GSETTING.w25qxx_address + strlen(str)) > 0){
 		for(size_t i = 0; i < strlen(str); i++){
 			W25qxx_WriteByte(str[i], DevNVRAM.GSETTING.w25qxx_address);
@@ -206,11 +210,13 @@ uint32_t GetRomFree(){
 
 bool Read_configuration(){
 	uint32_t readed_mem;
+	uint8_t array_len = 14;
 
 	uint32_t l_Address, l_Index;
 
 	l_Address = 0x00;
-	while(l_Address < 0x04*12){
+	l_Index = 0x00;
+	while(l_Address < 0x04*array_len){
 		readed_mem = Read_4byte(l_Address);
 		DevNVRAM.data32[l_Index] = readed_mem;
 		l_Index = l_Index+1;
@@ -232,6 +238,8 @@ bool Read_configuration(){
 		DevNVRAM.GSETTING.ALARM_THRESHOLD = 100;
 		DevNVRAM.GSETTING.rad_sum = 0;
 		DevNVRAM.GSETTING.w25qxx_address = 0x00001000;
+		DevNVRAM.GSETTING.UTC = 3;
+		DevNVRAM.GSETTING.log_save_period = 30;
 
 		//Memory is clear, first init. Writing columns
 		char* str = "BACK,DOSE,HWR,MIN,SEC,LAT,LON\n";
@@ -242,11 +250,12 @@ bool Read_configuration(){
 
 bool Write_configuration(){
 	uint32_t l_Address, l_Index, l_Error;
+	uint8_t array_len = 14;
 
 	l_Address = 0x00;
 	l_Index = 0x00;
 	l_Error = 0x00;
-	while(l_Address < 0x04*12){
+	while(l_Address < 0x04*array_len){
 		if(DevNVRAM.data32[l_Index] != Read_4byte(l_Address)) l_Error++;
 		l_Index = l_Index+1;
 		l_Address = l_Address + 4;
@@ -256,7 +265,7 @@ bool Write_configuration(){
 	l_Index = 0x00;
 	if(l_Error > 0){
 		W25qxx_EraseSector(0x1000);
-		while(l_Address < 0x04*12){
+		while(l_Address < 0x04*array_len){
 			if(Write_4byte(DevNVRAM.data32[l_Index], l_Address)){
 				l_Index = l_Index+1;
 				l_Address = l_Address + 4;
@@ -292,4 +301,8 @@ void Calculate_std(){
 	_sum = 0;
 	for(unsigned i = 0; i < GWORK.real_geigertime; i++) _sum+=pow(GWORK.stat_buff[i] - GMEANING.mean, 2);
 	GMEANING.std = (float)_sum/(float)(GWORK.real_geigertime-1);
+}
+
+void transmit_log(){
+
 }

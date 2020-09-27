@@ -38,12 +38,14 @@ typedef struct {
 	uint32_t w25qxx_address;
 
 	uint32_t rad_sum;
+	int32_t UTC;
+	uint32_t log_save_period;
 
 } geiger_settings;
 
 typedef union {
 	geiger_settings GSETTING;
-	uint32_t data32[12];
+	uint32_t data32[14];
 } NVRAM;
 
 typedef struct {
@@ -81,7 +83,7 @@ typedef struct {
 	uint8_t counter;
 	uint8_t menu_page;
 	uint8_t cursor;
-	uint16_t editable;
+	int16_t editable;
 	bool editable_bool;
 
 	bool update_required;
@@ -107,6 +109,8 @@ typedef struct {
 	bool active_hv_gen;
 	bool is_satellites_found;
 	bool is_tracking_enabled;
+	bool log_transfer;
+	bool is_monitor_enabled;
 
 	bool is_mean_mode;
 } geiger_flags;
@@ -135,12 +139,13 @@ bool Read_configuration();
 bool Write_configuration();
 
 bool Init_w25qxx();
-bool Write_string_w25qxx(char* str);
+bool Write_string_w25qxx(uint8_t* str);
 bool Read_string_w25qxx(uint32_t addr);
 bool Erase_w25qxx();
 
 void Save_dose();
 
+void transmit_log();
 
 void Reset_dose();
 

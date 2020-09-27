@@ -26,6 +26,7 @@ extern NVRAM DevNVRAM;
 extern geiger_flags GFLAGS;
 
 extern GPS_t GPS;
+extern uint8_t current_hour;
 
 #define BAT_ADC_MIN 50
 #define BAT_ADC_MAX 200
@@ -70,6 +71,7 @@ void draw_statusbar(const char** bitmaps, bool* bitmap_enabled, size_t size){
 }
 
 void draw_main(){
+
 	LCD_Clear();
 	int coeff = mapfloat(GMEANING.current_battery_voltage, 0, 4096, 0, 8);             //Значение сдвига пикселей для визуализации заряда аккумулятора
 	bool show_battery = false;
@@ -86,12 +88,12 @@ void draw_main(){
 	}
 
 	const char* bitmap_array[5] = {unmuted_bitmap, bell_bitmap, backlight_bitmap, satellite_bitmap, death_bitmap};
-	bool bitmap_status[5] = {GFLAGS.is_muted, !GFLAGS.no_alarm, (bool)(DevNVRAM.GSETTING.LCD_BACKLIGHT), GFLAGS.is_satellites_found, GFLAGS.do_alarm };
+	bool bitmap_status[5] = {GFLAGS.is_muted, !GFLAGS.no_alarm, (bool)(DevNVRAM.GSETTING.LCD_BACKLIGHT), GFLAGS.is_satellites_found && GFLAGS.is_tracking_enabled, GFLAGS.do_alarm };
 	draw_statusbar(bitmap_array, bitmap_status, 5);
 
 	LCD_SetCursor(LCD_X/2 - 5*2.5 , 0);
-	if(GPS.GPGGA.UTC_Hour + UTC < 10) LCD_JustDrawChar('0');
-	LCD_write(GPS.GPGGA.UTC_Hour + UTC, false);
+	if(current_hour < 10) LCD_JustDrawChar('0');
+	LCD_write(current_hour, false);
 	LCD_JustDrawChar(':');
 	if(GPS.GPGGA.UTC_Min < 10) LCD_JustDrawChar('0');
 	LCD_write(GPS.GPGGA.UTC_Min, false);
@@ -197,7 +199,7 @@ void draw_simple_menu_page(const char** punct_names, size_t punct_count){
 	}
 }
 
-void draw_editable_menu_page(const char** punct_names, uint16_t* punct_values, char* postfixes, size_t punct_count){
+void draw_editable_menu_page(const char** punct_names, int16_t* punct_values, char* postfixes, size_t punct_count){
 	for(size_t i = 0; i < punct_count; i++){
 		LCD_SetCursor(0, 10+9*i);
 		if (GUI.cursor==i) LCD_print(T_CURSOR);
@@ -239,7 +241,8 @@ void draw_graph(){
 }
 
 void draw_menu(){
-	/*const char* current_page_name[PAGES] = {S_MENU, S_MODE, S_SETTINGS, S_RESET, S_ACTIVITY, S_SURE, S_GCOUNTER, S_ADVANCED, S_ABOUT};
+#ifndef DEBUG
+	const char* current_page_name[PAGES] = {S_MENU, S_MODE, S_SETTINGS, S_RESET, S_ACTIVITY, S_SURE, S_GCOUNTER, S_ADVANCED, S_ABOUT};
 	LCD_SetCharSize(0);
 	const char *page_name = current_page_name[GUI.menu_page];
 	#if defined(RU)
@@ -270,10 +273,10 @@ void draw_menu(){
 		}break;
 		//Меню настроек
 		case 2:{
-			const char* current_page_puncts[4] = {S_GCOUNTER, S_ADVANCED, S_TONE, S_BACKLIGHT};
-			const bool punct_values[4] = {false, false, GFLAGS.is_muted, (bool)DevNVRAM.GSETTING.LCD_BACKLIGHT};
-			const bool skip_flags[4] = {true, true, false, false};
-			draw_checkbox_menu_page(current_page_puncts, punct_values, skip_flags, 4);
+			const char* current_page_puncts[5] = {S_GCOUNTER, S_ADVANCED, S_TONE, S_BACKLIGHT, S_GPS};
+			const bool punct_values[5] = {false, false, GFLAGS.is_muted, (bool)DevNVRAM.GSETTING.LCD_BACKLIGHT, GFLAGS.is_tracking_enabled};
+			const bool skip_flags[5] = {true, true, false, false, false};
+			draw_checkbox_menu_page(current_page_puncts, punct_values, skip_flags, 5);
 		}break;
 		//Меню выбора режима
 		case 3:{
@@ -295,16 +298,16 @@ void draw_menu(){
 	        //Кастомные настройки счётчика
 	        case 6:{
 	        	const char* current_page_puncts[4] = {S_GTIME, S_ERROR, S_VOLTAGE, S_GEIGER_MODE};
-	        	const uint16_t current_page_values[4] = {DevNVRAM.GSETTING.GEIGER_TIME, DevNVRAM.GSETTING.GEIGER_ERROR, DevNVRAM.GSETTING.GEIGER_VOLTAGE, DevNVRAM.GSETTING.ACTIVE_COUNTERS};
+	        	const int16_t current_page_values[4] = {DevNVRAM.GSETTING.GEIGER_TIME, DevNVRAM.GSETTING.GEIGER_ERROR, DevNVRAM.GSETTING.GEIGER_VOLTAGE, DevNVRAM.GSETTING.ACTIVE_COUNTERS};
 	        	const char current_page_postfixes[4] = {'s', '%', 'V', ' '};
 	        	draw_editable_menu_page(current_page_puncts, current_page_values, current_page_postfixes, 4);
 	        }break;
 	        //Advanced settings
 	        case 7:{
-	        	const char* current_page_puncts[asettings_puncts] = {S_CONTRAST, S_DOSE_SAVE, S_ALARM};
-	        	const uint16_t current_page_values[asettings_puncts] = {DevNVRAM.GSETTING.LCD_CONTRAST, DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL, DevNVRAM.GSETTING.ALARM_THRESHOLD};
-	        	const char current_page_postfixes[3] = {' ', ' ', ' '};
-	        	draw_editable_menu_page(current_page_puncts, current_page_values, current_page_postfixes, 3);
+	        	const char* current_page_puncts[5] = {S_CONTRAST, S_DOSE_SAVE, S_ALARM, S_UTC, S_TRACKING_PERIOD};
+	        	const uint16_t current_page_values[5] = {DevNVRAM.GSETTING.LCD_CONTRAST, DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL, DevNVRAM.GSETTING.ALARM_THRESHOLD, DevNVRAM.GSETTING.UTC, DevNVRAM.GSETTING.log_save_period};
+	        	const char current_page_postfixes[5] = {' ', ' ', ' ', 'h', 's'};
+	        	draw_editable_menu_page(current_page_puncts, current_page_values, current_page_postfixes, 5);
 	        }break;
 	        case 8:{
 	        	uint8_t ext_mem = map((w25qxx.CapacityInKiloByte*1024) - DevNVRAM.GSETTING.w25qxx_address, 0, (w25qxx.CapacityInKiloByte*1024), 0, 100);
@@ -333,7 +336,8 @@ void draw_menu(){
 	        	LCD_SetCursor(0, 70);
 	        }break;
 	    }
-	    LCD_Update();*/
+	    LCD_Update();
+#endif
 }
 
 void draw_bat_low(){

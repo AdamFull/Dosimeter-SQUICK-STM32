@@ -76,6 +76,9 @@ const char* S_POFF = "Sleep";
 const char* S_SURE = "Sure?";
 const char* S_ABOUT = "About";
 const char* S_GEIGER_MODE = "Counter mode:";
+const char* S_GPS = "Tracking:";
+const char* S_UTC = "UTC:";
+const char* S_TRACKING_PERIOD = "Track period:";
 #endif
 
 const char* T_URH = "uR/h";
