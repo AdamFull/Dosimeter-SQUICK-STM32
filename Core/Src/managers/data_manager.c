@@ -106,12 +106,14 @@ uint32_t Read_4byte(uint32_t start_address){
 }
 
 bool Init_w25qxx(){
-	uint8_t first_byte;
-	if(W25qxx_Init()){
+	/*if(W25qxx_Init()){
 		Read_configuration();
 		Write_configuration();
 		return true;
-	}
+	}*/
+	W25qxx_Init();
+	Read_configuration();
+	Write_configuration();
 	return false;
 }
 

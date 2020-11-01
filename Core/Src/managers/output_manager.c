@@ -34,10 +34,28 @@ extern uint8_t current_hour;
 #define settings_puncts 4
 #define asettings_puncts 3
 
+unsigned long beep_timer = 0;
+
 int getNumOfDigits(uint32_t number){
 	int digits=1; uint32_t num = number;
 	while ((num/=10) > 0) digits++;
 	return digits;
+}
+
+void beep() { //индикация каждой частички звуком светом
+    if(!GFLAGS.is_muted && !GFLAGS.do_alarm){
+        if(GetTick() - beep_timer > 2){
+            beep_timer = GetTick();
+            if(GFLAGS.is_detected){
+            	pwm_tone(150);
+                LL_GPIO_SetOutputPin(GPIOC, LL_GPIO_PIN_13);
+            }else{
+            	pwm_tone(0);
+                LL_GPIO_ResetOutputPin(GPIOC, LL_GPIO_PIN_13);
+            }
+            GFLAGS.is_detected = false;
+        }
+    }
 }
 
 void draw_update(){
@@ -70,6 +88,7 @@ void draw_statusbar(const char** bitmaps, bool* bitmap_enabled, size_t size){
 	}
 }
 
+//Draw mode screens
 void draw_main(){
 
 	LCD_Clear();
@@ -233,7 +252,7 @@ void draw_checkbox_menu_page(const char** punct_names, bool* punct_values, bool*
 }
 
 void draw_graph(){
-	for(uint8_t i=0;i < LCD_X-1;i++){//сделать интерполяцию графика
+	for(uint8_t i=0;i < LCD_X-1;i++){
 		uint8_t x_coord = map(i, 0, LCD_X-1, 21, LCD_X-1);
 		uint8_t interpolated = (uint8_t)lerp(LCD_Y-1-GUI.mass[i], LCD_Y-1-GUI.mass[i+1], 0.5);
 		LCD_DrawLine(x_coord, LCD_Y - 1, x_coord, interpolated, COLOR_BLACK);

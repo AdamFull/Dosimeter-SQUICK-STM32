@@ -12,7 +12,6 @@
 w25qxx_t	w25qxx;
 
 void spi_receive(uint8_t *buffer, uint32_t size){
-	uint8_t ticker = 0;
 	for(uint32_t i = 0; i < size; i++){
 		//while(LL_SPI_IsActiveFlag_RXNE(_W25QXX_SPI)){ if(ticker > 1000) break; ticker++; }
 		buffer[i] = LL_SPI_ReceiveData8(_W25QXX_SPI);
@@ -33,7 +32,7 @@ void spi_transmit(uint8_t* buffer, uint32_t size){
 #define	W25qxx_Delay(delay)		osDelay(delay)
 #include "cmsis_os.h"
 #else
-#define	W25qxx_Delay(delay)		asm("nop");
+#define	W25qxx_Delay(delay)		LL_mDelay(delay);//for(uint32_t i = 0; i < delay; i++) asm("nop");
 #endif
 //###################################################################################################################
 uint8_t	W25qxx_Spi(uint8_t	Data){

@@ -38,7 +38,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+//typedef void (*pFunction)(void);
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -69,6 +69,9 @@ extern geiger_work GWORK;
 extern geiger_mode GMODE;
 extern NVRAM DevNVRAM;
 extern geiger_ui GUI;
+
+//pFunction JumpToApplication;
+//uint32_t JumpAddress;
 
 LCD_CONFIG lcd_config_g;
 
@@ -404,8 +407,10 @@ int main(void)
   MX_SPI2_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
-	LL_GPIO_SetOutputPin(GPIOB, LL_GPIO_PIN_12);
-	LL_SPI_Enable(SPI2);
+  LL_GPIO_SetOutputPin(GPIOB, LL_GPIO_PIN_12);
+  LL_SPI_Enable(SPI2);
+
+  	Initialize_data();
   //Enable timers
 	LL_TIM_EnableIT_UPDATE(TIM1);
 	LL_TIM_EnableCounter(TIM1);
@@ -415,10 +420,8 @@ int main(void)
 	LL_SYSTICK_EnableIT();
 	adc_init();
 
-	Initialize_data();
-
-  gbuttonInit(&btn_set, GPIOB, GPIO_IDR_IDR4, HIGH_PULL, NORM_OPEN);
-  gbuttonInit(&btn_reset, GPIOB, GPIO_IDR_IDR5, HIGH_PULL, NORM_OPEN);
+  gbuttonInit(&btn_set, GPIOB, GPIO_IDR_IDR5, HIGH_PULL, NORM_OPEN);
+  gbuttonInit(&btn_reset, GPIOB, GPIO_IDR_IDR4, HIGH_PULL, NORM_OPEN);
 
   //реализовать режимы энергосбережения в зависимости от уровня заряда и установленного в настройках
   //От этого будет зависеть частота процессора и яркость подсветки если она включена
@@ -455,8 +458,8 @@ int main(void)
   {
 	current_hour = (GPS.GPGGA.UTC_Hour + DevNVRAM.GSETTING.UTC)%24;
 
-	  if(strlen(rx_buffer) > 0) {
-		  if(strcmp(rx_buffer, "rdlog\n") == 0 && !GFLAGS.log_transfer){
+	  if(strlen(rx_buffer) > 0) {																//If cbc received string, check what is it
+		  if(strcmp(rx_buffer, "rdlog\n") == 0 && !GFLAGS.log_transfer){						//If it was rdlog, start transmit log from flash
 			  GFLAGS.log_transfer = true;
 			  GFLAGS.is_monitor_enabled = false;
 			  uint32_t l_Address = 0x00001000;
@@ -478,17 +481,33 @@ int main(void)
 				  delayUs(150);
 			  }
 			  CDC_Transmit_FS("done\r\n", 6);
-		  }else if(strcmp(rx_buffer, "clmem\n") == 0){
+		  }else if(strcmp(rx_buffer, "clmem\n") == 0){											//If received clmem, start cleaning flash
 			  CDC_Transmit_FS("Erasing chip.\r\n", 15);
 			  W25qxx_EraseChip();
 			  CDC_Transmit_FS("done\0", 5);
 			  LL_mDelay(1);
 			  CDC_Transmit_FS("Please reconnect device to computer.\r\n", 38);
 			  NVIC_SystemReset();
-		  }else if(strcmp(rx_buffer, "monitor\n") == 0){
+		  }else if(strcmp(rx_buffer, "monitor\n") == 0){										//If received monitor, let's enable work log transfer
 			  GFLAGS.is_monitor_enabled = !GFLAGS.is_monitor_enabled;
-		  }else if(strcmp(rx_buffer, "update\n") == 0){
-			  //https://community.st.com/s/question/0D50X00009XkeeW/stm32l476rg-jump-to-bootloader-from-software
+		  }else if(strcmp(rx_buffer, "update\n") == 0){											//Here we starting backup and go to firmware update mode
+			  CDC_Transmit_FS("Rebooting to DFU.\r\n", 19);
+			  //HAL_RCC_DeInit();
+			  //SysTick->CTRL = 0;
+			  //SysTick->LOAD = 0;
+			  //SysTick->VAL = 0;
+			  /** * Step: Disable all interrupts */
+			  //__disable_irq();
+			  /* ARM Cortex-M Programming Guide to Memory Barrier Instructions.*/
+			  //__DSB();
+			  //__HAL_SYSCFG_REMAPMEMORY_SYSTEMFLASH();
+			  /* Remap is bot visible at once. Execute some unrelated command! */
+			  //__DSB();
+			  //__ISB();
+			  //JumpToApplication = (void (*)(void)) (*((uint32_t *)(0x1FFF0000 + 4)));
+			  /* Initialize user application's Stack Pointer */
+			  //__set_MSP(*(__IO uint32_t*) 0x1FFF0000);
+			  //JumpToApplication;‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍
 		  }else if(strcmp(rx_buffer, "rdcfg\n") == 0){
 
 		  }
@@ -499,6 +518,7 @@ int main(void)
 
 	GFLAGS.is_charging = !(bool)LL_GPIO_ReadInputPort(GPIOB)&GPIO_IDR_IDR11;
 
+	//Timer for update voltage values
 	if(GetTick() - current_millis > 5000){
 		current_millis = GetTick();
 		GMEANING.current_battery_voltage = get_battery_voltage();
@@ -506,6 +526,7 @@ int main(void)
 
 	}
 
+	//Timer for logger
 	if(GetTick() - gps_millis > DevNVRAM.GSETTING.log_save_period * 1000){
 		gps_millis = GetTick();
 
@@ -522,22 +543,32 @@ int main(void)
 		}
 	}
 
-	if((GMEANING.current_battery_voltage < BAT_ADC_MIN) && !GFLAGS.is_low_voltage) GFLAGS.is_low_voltage = true;
+	//Timer for idle screen disable
+
+	if((GMEANING.current_battery_voltage < BAT_ADC_MIN) && !GFLAGS.is_low_voltage) GFLAGS.is_low_voltage = true;		//Check, is battery low
 	//if(is_low_voltage) low_battery_kill();
 
-	GPS_Process();
+	GPS_Process();																										//Process gps data
+	TIM2->CCR1 = 140;
+	//GUI.update_required = true;
+
 	if(!GFLAGS.is_charging){
+		//High voltage regulation
 		if(DevNVRAM.GSETTING.ACTIVE_COUNTERS != 0){
 			if(get_high_voltage() < HV_ADC_REQ) { GWORK.transformer_pwm++; }
 			else { GWORK.transformer_pwm--; }
-			pwm_transformer(GWORK.transformer_pwm);
+			//pwm_transformer(GWORK.transformer_pwm);
 		}else{
-			pwm_transformer(0);
+			//(0);
 		}
 
+		//Check is current radiation more then alarm threshold
 		if((GWORK.rad_back > DevNVRAM.GSETTING.ALARM_THRESHOLD) && !GFLAGS.no_alarm && (GMODE.counter_mode == 0)) { GFLAGS.do_alarm = true; }
 		else { if(GMODE.counter_mode == 0) GFLAGS.do_alarm = false; }
-		if(!GFLAGS.do_alarm){ if((bool)DevNVRAM.GSETTING.LCD_BACKLIGHT){ pwm_backlight(255); } else {pwm_backlight(0);} }
+
+		if(!GFLAGS.do_alarm){ if((bool)DevNVRAM.GSETTING.LCD_BACKLIGHT){ pwm_backlight(255); } else {pwm_backlight(0);} }//Disable or enable backlight after alarm
+
+		//Alarm algorithm
 		if(!GFLAGS.no_alarm) {
 			if(GFLAGS.do_alarm){
 				if(GetTick()-GWORK.alarm_timer > 300){
@@ -549,10 +580,12 @@ int main(void)
 			}
 		}
 
-		GFLAGS.is_satellites_found = (GPS.GPGGA.Latitude > 0) && (GPS.GPGGA.Longitude > 0);
+		GFLAGS.is_satellites_found = (GPS.GPGGA.Latitude > 0) && (GPS.GPGGA.Longitude > 0);								//Flag for check sat status
 
 		draw_update();
+		beep();
 
+		//Save dose part
 		if(GMODE.counter_mode==0){
 			if(GWORK.rad_dose - GWORK.rad_dose_old > DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL){
 				GWORK.rad_dose_old = GWORK.rad_dose;
@@ -561,7 +594,7 @@ int main(void)
 			}
 		}
 	}else{
-		pwm_transformer(0);
+		//pwm_transformer(0);
 		pwm_tone(0);
 		pwm_backlight(0);
 	}
@@ -599,7 +632,7 @@ void SystemClock_Config(void)
 
   }
   LL_RCC_SetAHBPrescaler(LL_RCC_SYSCLK_DIV_2);
-  LL_RCC_SetAPB1Prescaler(LL_RCC_APB1_DIV_1);
+  LL_RCC_SetAPB1Prescaler(LL_RCC_APB1_DIV_2);
   LL_RCC_SetAPB2Prescaler(LL_RCC_APB2_DIV_1);
   LL_RCC_SetSysClkSource(LL_RCC_SYS_CLKSOURCE_PLL);
 
@@ -779,7 +812,7 @@ static void MX_SPI2_Init(void)
   SPI_InitStruct.ClockPolarity = LL_SPI_POLARITY_LOW;
   SPI_InitStruct.ClockPhase = LL_SPI_PHASE_1EDGE;
   SPI_InitStruct.NSS = LL_SPI_NSS_SOFT;
-  SPI_InitStruct.BaudRate = LL_SPI_BAUDRATEPRESCALER_DIV2;
+  SPI_InitStruct.BaudRate = LL_SPI_BAUDRATEPRESCALER_DIV4;
   SPI_InitStruct.BitOrder = LL_SPI_MSB_FIRST;
   SPI_InitStruct.CRCCalculation = LL_SPI_CRCCALCULATION_DISABLE;
   SPI_InitStruct.CRCPoly = 10;
@@ -857,9 +890,9 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 1 */
 
   /* USER CODE END TIM2_Init 1 */
-  TIM_InitStruct.Prescaler = LL_TIM_IC_FILTER_FDIV4_N8-LL_TIM_IC_FILTER_FDIV1_N2;
+  TIM_InitStruct.Prescaler = 36-LL_TIM_IC_FILTER_FDIV1_N2;
   TIM_InitStruct.CounterMode = LL_TIM_COUNTERMODE_UP;
-  TIM_InitStruct.Autoreload = 255;
+  TIM_InitStruct.Autoreload = 256-LL_TIM_IC_FILTER_FDIV1_N2;
   TIM_InitStruct.ClockDivision = LL_TIM_CLOCKDIVISION_DIV1;
   LL_TIM_Init(TIM2, &TIM_InitStruct);
   LL_TIM_EnableARRPreload(TIM2);
@@ -896,13 +929,13 @@ static void MX_TIM2_Init(void)
   */
   GPIO_InitStruct.Pin = LL_GPIO_PIN_10|LL_GPIO_PIN_3;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
-  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
   LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   GPIO_InitStruct.Pin = LL_GPIO_PIN_15;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
-  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
   LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
@@ -1020,8 +1053,9 @@ static void MX_GPIO_Init(void)
   /**/
   GPIO_InitStruct.Pin = LL_GPIO_PIN_12;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
-  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_UP;
   LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /**/
