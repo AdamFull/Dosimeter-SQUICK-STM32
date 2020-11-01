@@ -83,12 +83,12 @@ extern uint8_t current_hour;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_ADC1_Init(void);
-static void MX_ADC2_Init(void);
+static void MX_SPI2_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_ADC1_Init(void);
+static void MX_ADC2_Init(void);
 static void MX_USART1_UART_Init(void);
-static void MX_SPI2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -399,39 +399,31 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_ADC1_Init();
-  MX_ADC2_Init();
+  MX_SPI2_Init();
   MX_TIM1_Init();
   MX_TIM2_Init();
+  MX_ADC1_Init();
+  MX_ADC2_Init();
   MX_USART1_UART_Init();
-  MX_SPI2_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
-  LL_GPIO_SetOutputPin(GPIOB, LL_GPIO_PIN_12);
+
   LL_SPI_Enable(SPI2);
 
-  	Initialize_data();
+
   //Enable timers
-	LL_TIM_EnableIT_UPDATE(TIM1);
-	LL_TIM_EnableCounter(TIM1);
+   LL_TIM_EnableIT_UPDATE(TIM1);
+   LL_TIM_EnableCounter(TIM1);
 
-	LL_TIM_CC_EnableChannel(TIM2, LL_TIM_CHANNEL_CH1 | LL_TIM_CHANNEL_CH2 | LL_TIM_CHANNEL_CH3);
-	LL_TIM_EnableCounter(TIM2);
-	LL_SYSTICK_EnableIT();
-	adc_init();
+   LL_TIM_CC_EnableChannel(TIM2, LL_TIM_CHANNEL_CH1 | LL_TIM_CHANNEL_CH2 | LL_TIM_CHANNEL_CH3);
+   LL_TIM_EnableCounter(TIM2);
+   LL_SYSTICK_EnableIT();
 
-  gbuttonInit(&btn_set, GPIOB, GPIO_IDR_IDR5, HIGH_PULL, NORM_OPEN);
-  gbuttonInit(&btn_reset, GPIOB, GPIO_IDR_IDR4, HIGH_PULL, NORM_OPEN);
+   Initialize_data();
 
-  //реализовать режимы энергосбережения в зависимости от уровня заряда и установленного в настройках
-  //От этого будет зависеть частота процессора и яркость подсветки если она включена
+   adc_init();
 
-  setClickTimeout(&btn_reset, 100);
-  setClickTimeout(&btn_set, 100);
-  setTimeout(&btn_reset, 500);
-  setTimeout(&btn_set, 500);
-
-  LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_13);
+   GPS_Init();
 
   lcd_config_g.MOSIPORT = GPIOA;
   lcd_config_g.MOSIPIN = LL_GPIO_PIN_7;
@@ -446,7 +438,16 @@ int main(void)
   LCD_SetContrast(10);
   LCD_Flip();
 
-  GPS_Init();
+  gbuttonInit(&btn_set, GPIOB, GPIO_IDR_IDR5, HIGH_PULL, NORM_OPEN);
+  gbuttonInit(&btn_reset, GPIOB, GPIO_IDR_IDR4, HIGH_PULL, NORM_OPEN);
+
+    //реализовать режимы энергосбережения в зависимости от уровня заряда и установленного в настройках
+    //От этого будет зависеть частота процессора и яркость подсветки если она включена
+
+    setClickTimeout(&btn_reset, 100);
+    setClickTimeout(&btn_set, 100);
+    setTimeout(&btn_reset, 500);
+    setTimeout(&btn_set, 500);
 
   GMODE.counter_mode = 0;
 
@@ -519,10 +520,19 @@ int main(void)
 	GFLAGS.is_charging = !(bool)LL_GPIO_ReadInputPort(GPIOB)&GPIO_IDR_IDR11;
 
 	//Timer for update voltage values
-	if(GetTick() - current_millis > 5000){
+	if(GetTick() - current_millis > 500){
 		current_millis = GetTick();
 		GMEANING.current_battery_voltage = get_battery_voltage();
 		GMEANING.current_high_voltage = get_high_voltage();
+
+		//High voltage regulation
+		if(DevNVRAM.GSETTING.ACTIVE_COUNTERS != 0){
+			if(GMEANING.current_high_voltage < DevNVRAM.GSETTING.GEIGER_VOLTAGE*5.82f) { if(GWORK.transformer_pwm < 200)GWORK.transformer_pwm++; }
+			else { if(GWORK.transformer_pwm > 0) GWORK.transformer_pwm--; }
+			TIM2->CCR1 = GWORK.transformer_pwm;
+		}else{
+			//(0);
+		}
 
 	}
 
@@ -549,18 +559,9 @@ int main(void)
 	//if(is_low_voltage) low_battery_kill();
 
 	GPS_Process();																										//Process gps data
-	TIM2->CCR1 = 140;
 	//GUI.update_required = true;
 
 	if(!GFLAGS.is_charging){
-		//High voltage regulation
-		if(DevNVRAM.GSETTING.ACTIVE_COUNTERS != 0){
-			if(get_high_voltage() < HV_ADC_REQ) { GWORK.transformer_pwm++; }
-			else { GWORK.transformer_pwm--; }
-			//pwm_transformer(GWORK.transformer_pwm);
-		}else{
-			//(0);
-		}
 
 		//Check is current radiation more then alarm threshold
 		if((GWORK.rad_back > DevNVRAM.GSETTING.ALARM_THRESHOLD) && !GFLAGS.no_alarm && (GMODE.counter_mode == 0)) { GFLAGS.do_alarm = true; }
@@ -632,7 +633,7 @@ void SystemClock_Config(void)
 
   }
   LL_RCC_SetAHBPrescaler(LL_RCC_SYSCLK_DIV_2);
-  LL_RCC_SetAPB1Prescaler(LL_RCC_APB1_DIV_2);
+  LL_RCC_SetAPB1Prescaler(LL_RCC_APB1_DIV_1);
   LL_RCC_SetAPB2Prescaler(LL_RCC_APB2_DIV_1);
   LL_RCC_SetSysClkSource(LL_RCC_SYS_CLKSOURCE_PLL);
 
@@ -1055,7 +1056,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
   GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-  GPIO_InitStruct.Pull = LL_GPIO_PULL_UP;
   LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /**/

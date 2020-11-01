@@ -12,6 +12,7 @@
 w25qxx_t	w25qxx;
 
 void spi_receive(uint8_t *buffer, uint32_t size){
+	uint8_t ticker = 0;
 	for(uint32_t i = 0; i < size; i++){
 		//while(LL_SPI_IsActiveFlag_RXNE(_W25QXX_SPI)){ if(ticker > 1000) break; ticker++; }
 		buffer[i] = LL_SPI_ReceiveData8(_W25QXX_SPI);

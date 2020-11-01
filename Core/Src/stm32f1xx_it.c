@@ -229,19 +229,7 @@ void EXTI1_IRQHandler(void)
   {
     LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_1);
     /* USER CODE BEGIN LL_EXTI_LINE_1 */
-    if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 1 || DevNVRAM.GSETTING.ACTIVE_COUNTERS == 3){
-    	if(GMODE.counter_mode==0){    //Режим поиска
-    		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-    		if(++DevNVRAM.GSETTING.rad_sum>999999UL*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
-    		if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
-    	}else if(GMODE.counter_mode==1){							//Режим измерения активности
-    		if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
-    	}else if(GMODE.counter_mode==2){							//Режим измерения активности
-    		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-    		GUI.update_required = true;
-    	}
-    		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
-	}
+
     /* USER CODE END LL_EXTI_LINE_1 */
   }
   /* USER CODE BEGIN EXTI1_IRQn 1 */
@@ -261,19 +249,7 @@ void EXTI2_IRQHandler(void)
   {
     LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_2);
     /* USER CODE BEGIN LL_EXTI_LINE_2 */
-    if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 2 || DevNVRAM.GSETTING.ACTIVE_COUNTERS == 3){
-    	if(GMODE.counter_mode==0){    //Режим поиска
-    		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-    			if(++DevNVRAM.GSETTING.rad_sum>999999UL*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
-    			if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
-    	}else if(GMODE.counter_mode==1){							//Режим измерения активности
-    		if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
-    	}else if(GMODE.counter_mode==2){							//Режим измерения активности
-    		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-    		GUI.update_required = true;
-    	}
-    		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
-	}
+
     /* USER CODE END LL_EXTI_LINE_2 */
   }
   /* USER CODE BEGIN EXTI2_IRQn 1 */
@@ -293,19 +269,7 @@ void EXTI3_IRQHandler(void)
   {
     LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_3);
     /* USER CODE BEGIN LL_EXTI_LINE_3 */
-    if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 0){
-    	if(GMODE.counter_mode==0){    //Режим поиска
-    		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-    		if(++DevNVRAM.GSETTING.rad_sum>999999UL*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
-    		if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
-    	}else if(GMODE.counter_mode==1){							//Режим измерения активности
-    		if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
-    	}else if(GMODE.counter_mode==2){							//Режим измерения активности
-    		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-    		GUI.update_required = true;
-    	}
-				//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
-	}
+
     /* USER CODE END LL_EXTI_LINE_3 */
   }
   /* USER CODE BEGIN EXTI3_IRQn 1 */

@@ -18,6 +18,8 @@
 #include "libs/w25qxx.h"
 #include "libs/GPS.h"
 
+#include "configuration.h"
+
 extern geiger_ui GUI;
 extern geiger_mode GMODE;
 extern geiger_meaning GMEANING;
@@ -27,9 +29,6 @@ extern geiger_flags GFLAGS;
 
 extern GPS_t GPS;
 extern uint8_t current_hour;
-
-#define BAT_ADC_MIN 50
-#define BAT_ADC_MAX 200
 
 #define settings_puncts 4
 #define asettings_puncts 3
@@ -44,7 +43,7 @@ int getNumOfDigits(uint32_t number){
 
 void beep() { //индикация каждой частички звуком светом
     if(!GFLAGS.is_muted && !GFLAGS.do_alarm){
-        if(GetTick() - beep_timer > 2){
+        if(GetTick() - beep_timer > 1){
             beep_timer = GetTick();
             if(GFLAGS.is_detected){
             	pwm_tone(150);
@@ -92,7 +91,7 @@ void draw_statusbar(const char** bitmaps, bool* bitmap_enabled, size_t size){
 void draw_main(){
 
 	LCD_Clear();
-	int coeff = mapfloat(GMEANING.current_battery_voltage, 0, 4096, 0, 8);             //Значение сдвига пикселей для визуализации заряда аккумулятора
+	int coeff = mapfloat(GMEANING.current_battery_voltage, BAT_ADC_MIN, BAT_ADC_MAX, 0, 8);             //Значение сдвига пикселей для визуализации заряда аккумулятора
 	bool show_battery = false;
 
 	//отрисовка этой части занимает 1.87 кб

@@ -34,7 +34,7 @@ void Initialize_variables(){
 	GWORK.stat_time = 0;
 	GWORK.sum_old = 0;
 	GWORK.real_geigertime = 0;
-	GWORK.transformer_pwm = 0;
+	GWORK.transformer_pwm = 140;
 	GWORK.timer_time = 0;
 	GWORK.timer_remain = 0;
 	GWORK.rad_dose_old = 0;
@@ -106,15 +106,14 @@ uint32_t Read_4byte(uint32_t start_address){
 }
 
 bool Init_w25qxx(){
-	/*if(W25qxx_Init()){
-		Read_configuration();
-		Write_configuration();
-		return true;
-	}*/
-	W25qxx_Init();
+	LL_GPIO_SetOutputPin(GPIOB, LL_GPIO_PIN_12);
+	while(!W25qxx_Init()){
+		LL_mDelay(50);
+		LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_13);
+	}
 	Read_configuration();
 	Write_configuration();
-	return false;
+	return true;
 }
 
 bool Write_string_w25qxx(uint8_t* str){
@@ -145,8 +144,8 @@ bool Erase_w25qxx(){
 }
 
 void Initialize_data(){
-	Initialize_variables();
 	if(Init_w25qxx()){
+		Initialize_variables();
 		Reset_activity_test();
 		Update_rad_buffer();
 		device_status = INIT_COMPLETE;
@@ -229,13 +228,13 @@ bool Read_configuration(){
 		memset(DevNVRAM.data32, 0, sizeof(DevNVRAM.data32));
 
 		DevNVRAM.GSETTING.CONFIG_KEY = GOOD_CONFIG_KEY;
-		DevNVRAM.GSETTING.GEIGER_TIME = 21;
+		DevNVRAM.GSETTING.GEIGER_TIME = 38;
 		DevNVRAM.GSETTING.GEIGER_ERROR = 2;
 		DevNVRAM.GSETTING.GEIGER_VOLTAGE = 400;
 		DevNVRAM.GSETTING.LCD_CONTRAST = 15;
 		DevNVRAM.GSETTING.LCD_BACKLIGHT = 1;
 		DevNVRAM.GSETTING.BUZZER_TONE = 1;
-		DevNVRAM.GSETTING.ACTIVE_COUNTERS = 1;
+		DevNVRAM.GSETTING.ACTIVE_COUNTERS = 2;
 		DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL = 10;
 		DevNVRAM.GSETTING.ALARM_THRESHOLD = 100;
 		DevNVRAM.GSETTING.rad_sum = 0;

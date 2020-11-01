@@ -20,7 +20,8 @@ uint8_t getComCmd(uint8_t arg, uint8_t mask){
 }
 
 const char *toString(uint32_t value, uint16_t size){
-	char *buf = malloc(sizeof(char) * size);
+	//static char *buf = malloc(sizeof(char) * size);
+	//return buf;
 }
 
 // Отправляем байт данных дисплею
