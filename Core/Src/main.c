@@ -411,6 +411,16 @@ int main(void)
   LL_SYSTICK_EnableIT();
   LL_SPI_Enable(SPI2);
 
+  //Enable timers
+   LL_TIM_EnableIT_UPDATE(TIM1);
+   LL_TIM_EnableCounter(TIM1);
+
+   LL_TIM_CC_EnableChannel(TIM2, LL_TIM_CHANNEL_CH1 | LL_TIM_CHANNEL_CH2 | LL_TIM_CHANNEL_CH3);
+   LL_TIM_EnableCounter(TIM2);
+
+   Initialize_data();
+
+
    adc_init();
 
    GPS_Init();
@@ -440,15 +450,6 @@ int main(void)
     setTimeout(&btn_set, 500);
 
   GMODE.counter_mode = 0;
-
-  //Enable timers
-   LL_TIM_EnableIT_UPDATE(TIM1);
-   LL_TIM_EnableCounter(TIM1);
-
-   LL_TIM_CC_EnableChannel(TIM2, LL_TIM_CHANNEL_CH1 | LL_TIM_CHANNEL_CH2 | LL_TIM_CHANNEL_CH3);
-   LL_TIM_EnableCounter(TIM2);
-
-   Initialize_data();
 
   /* USER CODE END 2 */
 
@@ -802,6 +803,10 @@ static void MX_SPI2_Init(void)
   GPIO_InitStruct.Mode = LL_GPIO_MODE_FLOATING;
   LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+  /* SPI2 interrupt Init */
+  NVIC_SetPriority(SPI2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),1, 0));
+  NVIC_EnableIRQ(SPI2_IRQn);
+
   /* USER CODE BEGIN SPI2_Init 1 */
 
   /* USER CODE END SPI2_Init 1 */
@@ -841,7 +846,7 @@ static void MX_TIM1_Init(void)
   LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_TIM1);
 
   /* TIM1 interrupt Init */
-  NVIC_SetPriority(TIM1_UP_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),1, 0));
+  NVIC_SetPriority(TIM1_UP_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),2, 0));
   NVIC_EnableIRQ(TIM1_UP_IRQn);
 
   /* USER CODE BEGIN TIM1_Init 1 */
@@ -884,7 +889,7 @@ static void MX_TIM2_Init(void)
   LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_TIM2);
 
   /* TIM2 interrupt Init */
-  NVIC_SetPriority(TIM2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),2, 0));
+  NVIC_SetPriority(TIM2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),3, 0));
   NVIC_EnableIRQ(TIM2_IRQn);
 
   /* USER CODE BEGIN TIM2_Init 1 */
@@ -929,7 +934,7 @@ static void MX_TIM2_Init(void)
   */
   GPIO_InitStruct.Pin = LL_GPIO_PIN_10|LL_GPIO_PIN_3;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
-  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
   LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 

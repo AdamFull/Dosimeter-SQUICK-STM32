@@ -13,8 +13,6 @@
 #include "libs/LCD_1202.h"
 #include "libs/w25qxx.h"
 
-#include "usbd_cdc_if.h"
-
 NVRAM DevNVRAM;
 geiger_work GWORK;
 geiger_meaning GMEANING;
