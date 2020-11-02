@@ -22,6 +22,8 @@ geiger_flags GFLAGS;
 geiger_mode GMODE;
 geiger_ui GUI;
 
+uint32_t flash_init_attempts = 0;
+
 DINITSTATUS device_status;
 
 uint8_t current_hour;
@@ -34,7 +36,7 @@ void Initialize_variables(){
 	GWORK.stat_time = 0;
 	GWORK.sum_old = 0;
 	GWORK.real_geigertime = 0;
-	GWORK.transformer_pwm = 140;
+	GWORK.transformer_pwm = 130;
 	GWORK.timer_time = 0;
 	GWORK.timer_remain = 0;
 	GWORK.rad_dose_old = 0;
@@ -108,8 +110,9 @@ uint32_t Read_4byte(uint32_t start_address){
 bool Init_w25qxx(){
 	LL_GPIO_SetOutputPin(GPIOB, LL_GPIO_PIN_12);
 	while(!W25qxx_Init()){
-		LL_mDelay(50);
+		LL_mDelay(100);
 		LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_13);
+		flash_init_attempts++;
 	}
 	Read_configuration();
 	Write_configuration();

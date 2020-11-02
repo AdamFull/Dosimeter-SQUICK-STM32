@@ -408,18 +408,8 @@ int main(void)
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
+  LL_SYSTICK_EnableIT();
   LL_SPI_Enable(SPI2);
-
-
-  //Enable timers
-   LL_TIM_EnableIT_UPDATE(TIM1);
-   LL_TIM_EnableCounter(TIM1);
-
-   LL_TIM_CC_EnableChannel(TIM2, LL_TIM_CHANNEL_CH1 | LL_TIM_CHANNEL_CH2 | LL_TIM_CHANNEL_CH3);
-   LL_TIM_EnableCounter(TIM2);
-   LL_SYSTICK_EnableIT();
-
-   Initialize_data();
 
    adc_init();
 
@@ -450,6 +440,15 @@ int main(void)
     setTimeout(&btn_set, 500);
 
   GMODE.counter_mode = 0;
+
+  //Enable timers
+   LL_TIM_EnableIT_UPDATE(TIM1);
+   LL_TIM_EnableCounter(TIM1);
+
+   LL_TIM_CC_EnableChannel(TIM2, LL_TIM_CHANNEL_CH1 | LL_TIM_CHANNEL_CH2 | LL_TIM_CHANNEL_CH3);
+   LL_TIM_EnableCounter(TIM2);
+
+   Initialize_data();
 
   /* USER CODE END 2 */
 
@@ -891,9 +890,9 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 1 */
 
   /* USER CODE END TIM2_Init 1 */
-  TIM_InitStruct.Prescaler = 36-LL_TIM_IC_FILTER_FDIV1_N2;
+  TIM_InitStruct.Prescaler = 35;
   TIM_InitStruct.CounterMode = LL_TIM_COUNTERMODE_UP;
-  TIM_InitStruct.Autoreload = 256-LL_TIM_IC_FILTER_FDIV1_N2;
+  TIM_InitStruct.Autoreload = 255;
   TIM_InitStruct.ClockDivision = LL_TIM_CLOCKDIVISION_DIV1;
   LL_TIM_Init(TIM2, &TIM_InitStruct);
   LL_TIM_EnableARRPreload(TIM2);
