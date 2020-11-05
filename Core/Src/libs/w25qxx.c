@@ -1,6 +1,7 @@
 
 #include "libs/w25qxx.h"
 #include "libs/w25qxxConf.h"
+#include "stm32f1xx.h"
 #include "util.h"
 
 #if (_W25QXX_DEBUG==1)
@@ -12,19 +13,17 @@
 w25qxx_t	w25qxx;
 
 void spi_receive(uint8_t *buffer, uint32_t size){
-	uint8_t ticker = 0;
 	for(uint32_t i = 0; i < size; i++){
-		//while(LL_SPI_IsActiveFlag_RXNE(_W25QXX_SPI)){ if(ticker > 1000) break; ticker++; }
-		buffer[i] = LL_SPI_ReceiveData8(_W25QXX_SPI);
+		while(!(_W25QXX_SPI->SR & SPI_SR_RXNE));
+		buffer[i] = *(volatile uint8_t *)&_W25QXX_SPI->DR;
 	}
 
 }
 
 void spi_transmit(uint8_t* buffer, uint32_t size){
-	uint8_t ticker = 0;
 	for(uint32_t i = 0; i < size; i++){
-		while(!LL_SPI_IsActiveFlag_TXE(_W25QXX_SPI)){ if(ticker > 1000) break; ticker++; }
-		LL_SPI_TransmitData8(_W25QXX_SPI, buffer[i]);
+		while(!(_W25QXX_SPI->SR & SPI_SR_TXE));
+		*(volatile uint8_t *)&_W25QXX_SPI->DR = buffer[i];
 	}
 
 }
@@ -33,13 +32,15 @@ void spi_transmit(uint8_t* buffer, uint32_t size){
 #define	W25qxx_Delay(delay)		osDelay(delay)
 #include "cmsis_os.h"
 #else
-#define	W25qxx_Delay(delay)		LL_mDelay(delay);//for(uint32_t i = 0; i < delay; i++) asm("nop");
+#define	W25qxx_Delay(delay)		for(uint32_t i = 0; i < delay; i++) asm("nop");
 #endif
 //###################################################################################################################
 uint8_t	W25qxx_Spi(uint8_t	Data){
-	uint8_t	ret;
-	spi_transmit(&Data, 1);
-	spi_receive(&ret, 1);
+	uint8_t	ret = 0;
+	while(!(_W25QXX_SPI->SR & SPI_SR_TXE));
+	*(volatile uint8_t *)&_W25QXX_SPI->DR = Data;
+	while(!(_W25QXX_SPI->SR & SPI_SR_RXNE));
+	ret = *(volatile uint8_t *)&_W25QXX_SPI->DR;
 	return ret;
 }
 //###################################################################################################################
@@ -83,7 +84,7 @@ void W25qxx_WriteDisable(void)
 //###################################################################################################################
 uint8_t W25qxx_ReadStatusRegister(uint8_t	SelectStatusRegister_1_2_3)
 {
-	uint8_t	status=0;
+	uint8_t	status = 0;
 	LL_GPIO_ResetOutputPin(_W25QXX_CS_GPIO,_W25QXX_CS_PIN);
 	if(SelectStatusRegister_1_2_3==1)
 	{
@@ -144,11 +145,12 @@ void W25qxx_WaitForWriteEnd(void)
 //###################################################################################################################
 bool	W25qxx_Init(void)
 {
+	//w25qxx = {W25Q10, };
 	w25qxx.Lock=1;	
 	while(GetTick()<100) W25qxx_Delay(1);
 	LL_GPIO_SetOutputPin(_W25QXX_CS_GPIO,_W25QXX_CS_PIN);
 	W25qxx_Delay(100);
-	uint32_t	id;
+	uint32_t	id = 0;
 	id=W25qxx_ReadID();
 
 	switch(id&0x0000FFFF)
@@ -354,9 +356,9 @@ bool 	W25qxx_IsEmptySector(uint32_t Sector_Address,uint32_t OffsetInByte,uint32_
 	w25qxx.Lock=1;	
 	if((NumByteToCheck_up_to_SectorSize>w25qxx.SectorSize)||(NumByteToCheck_up_to_SectorSize==0))
 		NumByteToCheck_up_to_SectorSize=w25qxx.SectorSize;
-	uint8_t	pBuffer[32];
-	uint32_t	WorkAddress;
-	uint32_t	i;
+	uint8_t	pBuffer[32] = {0};
+	uint32_t	WorkAddress = 0;
+	uint32_t	i = 0;
 	for(i=OffsetInByte; i<w25qxx.SectorSize; i+=sizeof(pBuffer))
 	{
 		LL_GPIO_ResetOutputPin(_W25QXX_CS_GPIO,_W25QXX_CS_PIN);
@@ -410,9 +412,9 @@ bool 	W25qxx_IsEmptyBlock(uint32_t Block_Address,uint32_t OffsetInByte,uint32_t 
 	w25qxx.Lock=1;	
 	if((NumByteToCheck_up_to_BlockSize>w25qxx.BlockSize)||(NumByteToCheck_up_to_BlockSize==0))
 		NumByteToCheck_up_to_BlockSize=w25qxx.BlockSize;
-	uint8_t	pBuffer[32];
-	uint32_t	WorkAddress;
-	uint32_t	i;
+	uint8_t	pBuffer[32] = {0};
+	uint32_t	WorkAddress = 0;
+	uint32_t	i = 0;
 	for(i=OffsetInByte; i<w25qxx.BlockSize; i+=sizeof(pBuffer))
 	{
 		LL_GPIO_ResetOutputPin(_W25QXX_CS_GPIO,_W25QXX_CS_PIN);
@@ -513,9 +515,9 @@ void 	W25qxx_WriteSector(uint8_t *pBuffer	,uint32_t Sector_Address,uint32_t Offs
 	{
 		return;
 	}	
-	uint32_t	StartPage;
-	int32_t		BytesToWrite;
-	uint32_t	LocalOffset;	
+	uint32_t	StartPage = 0;
+	int32_t		BytesToWrite = 0;
+	uint32_t	LocalOffset = 0;
 	if((OffsetInByte+NumByteToWrite_up_to_SectorSize) > w25qxx.SectorSize)
 		BytesToWrite = w25qxx.SectorSize-OffsetInByte;
 	else
@@ -540,9 +542,9 @@ void 	W25qxx_WriteBlock	(uint8_t* pBuffer ,uint32_t Block_Address	,uint32_t Offs
 	{
 		return;
 	}	
-	uint32_t	StartPage;
-	int32_t		BytesToWrite;
-	uint32_t	LocalOffset;	
+	uint32_t	StartPage = 0;
+	int32_t		BytesToWrite = 0;
+	uint32_t	LocalOffset = 0;
 	if((OffsetInByte+NumByteToWrite_up_to_BlockSize) > w25qxx.BlockSize)
 		BytesToWrite = w25qxx.BlockSize-OffsetInByte;
 	else
@@ -628,9 +630,9 @@ void 	W25qxx_ReadSector(uint8_t *pBuffer,uint32_t Sector_Address,uint32_t Offset
 	{
 		return;
 	}	
-	uint32_t	StartPage;
-	int32_t		BytesToRead;
-	uint32_t	LocalOffset;	
+	uint32_t	StartPage = 0;
+	int32_t		BytesToRead = 0;
+	uint32_t	LocalOffset = 0;
 	if((OffsetInByte+NumByteToRead_up_to_SectorSize) > w25qxx.SectorSize)
 		BytesToRead = w25qxx.SectorSize-OffsetInByte;
 	else
@@ -655,9 +657,9 @@ void 	W25qxx_ReadBlock(uint8_t* pBuffer,uint32_t Block_Address,uint32_t OffsetIn
 	{
 		return;
 	}	
-	uint32_t	StartPage;
-	int32_t		BytesToRead;
-	uint32_t	LocalOffset;	
+	uint32_t	StartPage = 0;
+	int32_t		BytesToRead = 0;
+	uint32_t	LocalOffset = 0;
 	if((OffsetInByte+NumByteToRead_up_to_BlockSize) > w25qxx.BlockSize)
 		BytesToRead = w25qxx.BlockSize-OffsetInByte;
 	else

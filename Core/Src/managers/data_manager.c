@@ -12,6 +12,7 @@
 #include "string.h"
 #include "libs/LCD_1202.h"
 #include "libs/w25qxx.h"
+#include "configuration.h"
 
 NVRAM DevNVRAM;
 geiger_work GWORK;
@@ -25,16 +26,23 @@ uint32_t flash_init_attempts = 0;
 DINITSTATUS device_status;
 
 uint8_t current_hour;
+unsigned long my_ticker = 0;
+
+void voltage_required(){
+	float coeff = 6.f - (1.f - ((float)GMEANING.current_battery_voltage/(float)BAT_ADC_MAX));
+	GWORK.voltage_req =  ((float)DevNVRAM.GSETTING.GEIGER_VOLTAGE*(float)coeff);
+}
 
 void Initialize_variables(){
 
+	GWORK.voltage_req = 0;
 	GWORK.time_min_old = 0;
+	GWORK.stat_time = 0;
 	GWORK.time_min = 1;
 	GWORK.time_sec = 0;
-	GWORK.stat_time = 0;
 	GWORK.sum_old = 0;
 	GWORK.real_geigertime = 0;
-	GWORK.transformer_pwm = 130;
+	GWORK.transformer_pwm = 120;
 	GWORK.timer_time = 0;
 	GWORK.timer_remain = 0;
 	GWORK.rad_dose_old = 0;
@@ -49,8 +57,8 @@ void Initialize_variables(){
 	GMEANING.std = 0.f;
 
 	GMODE.counter_mode = 0;
+	GMODE.means_times = 0;
 
-	GFLAGS.stop_timer = false;
 	GFLAGS.next_step = false;
 	GFLAGS.no_alarm = false;
 	GFLAGS.do_alarm = false;
@@ -65,6 +73,7 @@ void Initialize_variables(){
 	GFLAGS.is_memory_initialized = false;
 	GFLAGS.active_hv_gen = false;
 	GFLAGS.is_mean_mode = false;
+	GFLAGS.is_flash_initialized = false;
 
 	GUI.counter = 0;
 	GUI.cursor = 0;
@@ -107,13 +116,19 @@ uint32_t Read_4byte(uint32_t start_address){
 
 bool Init_w25qxx(){
 	LL_GPIO_SetOutputPin(GPIOB, LL_GPIO_PIN_12);
+	uint32_t timeout = 0;
 	while(!W25qxx_Init()){
-		LL_mDelay(100);
-		LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_13);
-		flash_init_attempts++;
+		if(timeout < 30){
+			LL_GPIO_TogglePin(GPIOC, LL_GPIO_PIN_13);
+			LL_mDelay(100);
+			timeout++;
+		}else{
+			return false;
+		}
 	}
 	Read_configuration();
 	Write_configuration();
+	GFLAGS.is_flash_initialized = true;
 	return true;
 }
 
@@ -149,6 +164,7 @@ void Initialize_data(){
 		Initialize_variables();
 		Reset_activity_test();
 		Update_rad_buffer();
+		voltage_required();
 		device_status = INIT_COMPLETE;
 	}else{
 		device_status = EXT_MEMORY_INIT_ERROR;
@@ -248,6 +264,7 @@ bool Read_configuration(){
 		Write_string_w25qxx(str);
 		Write_configuration();
 	}
+	voltage_required();
 }
 
 bool Write_configuration(){

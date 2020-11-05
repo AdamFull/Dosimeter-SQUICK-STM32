@@ -10,6 +10,7 @@
 
 #define VERSION "b1.0.0.0"
 
+#define HV_COEF 6.5f
 #define BAT_ADC_MIN 2234
 #define BAT_ADC_MAX 2606
 

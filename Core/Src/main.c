@@ -75,7 +75,7 @@ extern geiger_ui GUI;
 
 LCD_CONFIG lcd_config_g;
 
-uint8_t strbuffer[64];
+uint8_t strbuffer[64] = {0};
 
 extern uint8_t current_hour;
 /* USER CODE END PV */
@@ -90,15 +90,31 @@ static void MX_ADC1_Init(void);
 static void MX_ADC2_Init(void);
 static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
+static void SendMessage(char *message);
+void move_cursor(bool direction, bool editable, bool menu_mode);
+void cursor_select(bool direction, bool editable, bool menu_mode);
+void button_action();
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+void SendMessage(char *message){
+	CDC_Transmit_FS(message, strlen(message));
+}
+
+void bootToDFU(){
+	LL_GPIO_SetOutputPin(GPIOB, LL_GPIO_PIN_7);
+	LL_mDelay(10);
+	NVIC_SystemReset();
+}
+
+//Cursor movement
 void move_cursor(bool direction, bool editable, bool menu_mode){
 #ifndef DEBUG
-	if(editable){			//сли редактируем
+	//Cursor in editing
+	if(editable){
 		if(direction){
 			if(GUI.menu_page == 4){
 				switch (GUI.cursor){
@@ -144,11 +160,12 @@ void move_cursor(bool direction, bool editable, bool menu_mode){
 				}
 			}
 		}
+		//Cursor in menu
 	}else{
 		if(direction){
 			if(menu_mode && GUI.menu_page != 8){
 				switch (GUI.menu_page){
-					case 0:{ if(GUI.cursor < 4) GUI.cursor++; } break;
+					case 0:{ if(GUI.cursor < 5) GUI.cursor++; } break;
 					case 1:{ if(GUI.cursor < 2) GUI.cursor++; } break;
 					case 2:{ if(GUI.cursor < 4) GUI.cursor++; } break;
 					case 3:{ if(GUI.cursor < 2) GUI.cursor++; } break;
@@ -210,7 +227,8 @@ void cursor_select(bool direction, bool editable, bool menu_mode){
 						case 1:{ GUI.menu_page = 2; }break;
 						case 2:{ GUI.menu_page = 3; }break;
 						case 3:{ GUI.menu_page = 5; }break;
-						case 4:{ GUI.menu_page = 8; }break;
+						case 4:{ bootToDFU(); }break;
+						case 5:{ GUI.menu_page = 8; }break;
 					}
 					GUI.cursor = 0;
 				}break;
@@ -411,15 +429,7 @@ int main(void)
   LL_SYSTICK_EnableIT();
   LL_SPI_Enable(SPI2);
 
-  //Enable timers
-   LL_TIM_EnableIT_UPDATE(TIM1);
-   LL_TIM_EnableCounter(TIM1);
-
-   LL_TIM_CC_EnableChannel(TIM2, LL_TIM_CHANNEL_CH1 | LL_TIM_CHANNEL_CH2 | LL_TIM_CHANNEL_CH3);
-   LL_TIM_EnableCounter(TIM2);
-
    Initialize_data();
-
 
    adc_init();
 
@@ -451,117 +461,110 @@ int main(void)
 
   GMODE.counter_mode = 0;
 
+  //Enable timers
+     LL_TIM_EnableIT_UPDATE(TIM1);
+     LL_TIM_EnableCounter(TIM1);
+
+     LL_TIM_CC_EnableChannel(TIM2, LL_TIM_CHANNEL_CH1 | LL_TIM_CHANNEL_CH2 | LL_TIM_CHANNEL_CH3);
+     LL_TIM_EnableCounter(TIM2);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+#ifndef DEBUG
 	current_hour = (GPS.GPGGA.UTC_Hour + DevNVRAM.GSETTING.UTC)%24;
-
-	  if(strlen(rx_buffer) > 0) {																//If cbc received string, check what is it
-		  if(strcmp(rx_buffer, "rdlog\n") == 0 && !GFLAGS.log_transfer){						//If it was rdlog, start transmit log from flash
-			  GFLAGS.log_transfer = true;
-			  GFLAGS.is_monitor_enabled = false;
-			  uint32_t l_Address = 0x00001000;
-			  uint32_t l_Index = 0;
-			  char to_append = '\0';
-			  sprintf(strbuffer, "%d\r\n", DevNVRAM.GSETTING.w25qxx_address - l_Address);
-			  LL_mDelay(100);
-			  CDC_Transmit_FS(strbuffer, sizeof(strbuffer));
-			  while(l_Address < DevNVRAM.GSETTING.w25qxx_address){
-				  l_Index = 0;
-				  memset(strbuffer, '\0', sizeof(strbuffer));
-				  do{
-					  W25qxx_ReadByte(&strbuffer[l_Index], l_Address);
-					  l_Address++; l_Index++;
-				  }while(strbuffer[abs(l_Index)] != '\n' && isdigit(strbuffer[abs(l_Index - 1)]));
-				  strncat(strbuffer, &to_append, sizeof(char));
-				  if(strbuffer != NULL) CDC_Transmit_FS(strbuffer, strlen(strbuffer));
-				  //LL_mDelay(10);
-				  delayUs(150);
-			  }
-			  CDC_Transmit_FS("done\r\n", 6);
-		  }else if(strcmp(rx_buffer, "clmem\n") == 0){											//If received clmem, start cleaning flash
-			  CDC_Transmit_FS("Erasing chip.\r\n", 15);
-			  W25qxx_EraseChip();
-			  CDC_Transmit_FS("done\0", 5);
-			  LL_mDelay(1);
-			  CDC_Transmit_FS("Please reconnect device to computer.\r\n", 38);
-			  NVIC_SystemReset();
-		  }else if(strcmp(rx_buffer, "monitor\n") == 0){										//If received monitor, let's enable work log transfer
-			  GFLAGS.is_monitor_enabled = !GFLAGS.is_monitor_enabled;
-		  }else if(strcmp(rx_buffer, "update\n") == 0){											//Here we starting backup and go to firmware update mode
-			  CDC_Transmit_FS("Rebooting to DFU.\r\n", 19);
-			  //HAL_RCC_DeInit();
-			  //SysTick->CTRL = 0;
-			  //SysTick->LOAD = 0;
-			  //SysTick->VAL = 0;
-			  /** * Step: Disable all interrupts */
-			  //__disable_irq();
-			  /* ARM Cortex-M Programming Guide to Memory Barrier Instructions.*/
-			  //__DSB();
-			  //__HAL_SYSCFG_REMAPMEMORY_SYSTEMFLASH();
-			  /* Remap is bot visible at once. Execute some unrelated command! */
-			  //__DSB();
-			  //__ISB();
-			  //JumpToApplication = (void (*)(void)) (*((uint32_t *)(0x1FFF0000 + 4)));
-			  /* Initialize user application's Stack Pointer */
-			  //__set_MSP(*(__IO uint32_t*) 0x1FFF0000);
-			  //JumpToApplication;‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍
-		  }else if(strcmp(rx_buffer, "rdcfg\n") == 0){
-
-		  }
-		  memset(rx_buffer, 0, sizeof(rx_buffer));
-	  }
-	  GFLAGS.log_transfer = false;
-	button_action();
-
-	GFLAGS.is_charging = !(bool)LL_GPIO_ReadInputPort(GPIOB)&GPIO_IDR_IDR11;
-
-	//Timer for update voltage values
-	if(GetTick() - current_millis > 500){
-		current_millis = GetTick();
-		GMEANING.current_battery_voltage = get_battery_voltage();
-		GMEANING.current_high_voltage = get_high_voltage();
-
-		//High voltage regulation
-		if(DevNVRAM.GSETTING.ACTIVE_COUNTERS != 0){
-			if(GMEANING.current_high_voltage < DevNVRAM.GSETTING.GEIGER_VOLTAGE*5.82f) { if(GWORK.transformer_pwm < 200)GWORK.transformer_pwm++; }
-			else { if(GWORK.transformer_pwm > 0) GWORK.transformer_pwm--; }
-			TIM2->CCR1 = GWORK.transformer_pwm;
-		}else{
-			//(0);
-		}
-
-	}
-
-	//Timer for logger
-	if(GetTick() - gps_millis > DevNVRAM.GSETTING.log_save_period * 1000){
-		gps_millis = GetTick();
-
-		if(GFLAGS.is_satellites_found && GPS.end_convertation == 1 && GFLAGS.is_tracking_enabled){
-			uint8_t buffer[64];
-			memset(buffer, 0, sizeof(buffer));
-			sprintf(buffer, "%u,%u,%u,%u,%u,%lf,%lf\n", GWORK.rad_back, GWORK.rad_dose, current_hour, GPS.GPGGA.UTC_Min, GPS.GPGGA.UTC_Sec, GPS.GPGGA.LatitudeDecimal, GPS.GPGGA.LongitudeDecimal);
-			//if(GFLAGS.is_monitor_enabled) CDC_Transmit_FS(buffer, sizeof(buffer));
-			GPS.end_convertation = 0;
-			if(!Write_string_w25qxx(buffer)){
-				//Not enought memory, can't write
-				//Do something
-			}
-		}
-	}
 
 	//Timer for idle screen disable
 
 	if((GMEANING.current_battery_voltage < BAT_ADC_MIN) && !GFLAGS.is_low_voltage) GFLAGS.is_low_voltage = true;		//Check, is battery low
+	GFLAGS.is_charging = false;//(GPIOB->IDR & LL_GPIO_PIN_11);
 	//if(is_low_voltage) low_battery_kill();
 
-	GPS_Process();																										//Process gps data
-	//GUI.update_required = true;
-
 	if(!GFLAGS.is_charging){
+		  if(strlen(rx_buffer) > 0) {																//If cbc received string, check what is it
+			  if(strcmp(rx_buffer, "rdlog\n") == 0 && !GFLAGS.log_transfer){						//If it was rdlog, start transmit log from flash
+				  GFLAGS.log_transfer = true;
+				  GFLAGS.is_monitor_enabled = false;
+				  uint32_t l_Address = 0x00001000;
+				  uint32_t l_Index = 0;
+				  char to_append = '\0';
+				  sprintf(strbuffer, "%d\r\n", DevNVRAM.GSETTING.w25qxx_address - l_Address);
+				  LL_mDelay(100);
+				  SendMessage(strbuffer);
+				  while(l_Address < DevNVRAM.GSETTING.w25qxx_address){
+					  l_Index = 0;
+					  memset(strbuffer, '\0', sizeof(strbuffer));
+					  do{
+						  W25qxx_ReadByte(&strbuffer[l_Index], l_Address);
+						  l_Address++; l_Index++;
+					  }while(strbuffer[abs(l_Index)] != '\n' && isdigit(strbuffer[abs(l_Index - 1)]));
+					  strncat(strbuffer, &to_append, sizeof(char));
+					  if(strbuffer != NULL) SendMessage(strbuffer);
+					  //LL_mDelay(10);
+					  delayUs(150);
+				  }
+				  SendMessage("done\r\n");
+			  }else if(strcmp(rx_buffer, "clmem\n") == 0){											//If received clmem, start cleaning flash
+				  SendMessage("Erasing chip.\r\n");
+				  W25qxx_EraseChip();
+				  SendMessage("done\0");
+				  LL_mDelay(1);
+				  SendMessage("Please reconnect device to computer.\r\n");
+				  NVIC_SystemReset();
+			  }else if(strcmp(rx_buffer, "monitor\n") == 0){										//If received monitor, let's enable work log transfer
+				  GFLAGS.is_monitor_enabled = !GFLAGS.is_monitor_enabled;
+			  }else if(strcmp(rx_buffer, "update\n") == 0){											//Here we starting backup and go to firmware update mode
+				  SendMessage("Rebooting to dfu.\n");
+				  bootToDFU();
+			  }else if(strcmp(rx_buffer, "rdcfg\n") == 0){
+
+			  }
+			  memset(rx_buffer, 0, sizeof(rx_buffer));
+		  }
+		  GFLAGS.log_transfer = false;
+		button_action();
+
+		GFLAGS.is_charging = !(bool)LL_GPIO_ReadInputPort(GPIOB)&GPIO_IDR_IDR11;
+
+		//Timer for update voltage values
+		voltage_required();
+		if(GetTick() - current_millis > 100){
+			current_millis = GetTick();
+			GMEANING.current_battery_voltage = get_battery_voltage();
+			GMEANING.current_high_voltage = get_high_voltage();
+
+			//High voltage regulation
+			if(DevNVRAM.GSETTING.ACTIVE_COUNTERS != 0){
+				if(GMEANING.current_high_voltage < GWORK.voltage_req) { if(GWORK.transformer_pwm < 200)GWORK.transformer_pwm++; }
+				else { if(GWORK.transformer_pwm > 0) GWORK.transformer_pwm--; }
+				TIM2->CCR1 = GWORK.transformer_pwm;
+			}else{
+				TIM2->CCR1 = 0;
+			}
+
+		}
+
+		//Timer for logger
+		if(GetTick() - gps_millis > DevNVRAM.GSETTING.log_save_period * 1000){
+			gps_millis = GetTick();
+
+			if(GFLAGS.is_satellites_found && GPS.end_convertation == 1 && GFLAGS.is_tracking_enabled){
+				uint8_t buffer[64];
+				memset(buffer, 0, sizeof(buffer));
+				sprintf(buffer, "%u,%u,%u,%u,%u,%lf,%lf\n", GWORK.rad_back, GWORK.rad_dose, current_hour, GPS.GPGGA.UTC_Min, GPS.GPGGA.UTC_Sec, GPS.GPGGA.LatitudeDecimal, GPS.GPGGA.LongitudeDecimal);
+				//if(GFLAGS.is_monitor_enabled) CDC_Transmit_FS(buffer, sizeof(buffer));
+				GPS.end_convertation = 0;
+				if(!Write_string_w25qxx(buffer)){
+					//Not enought memory, can't write
+					//Do something
+				}
+			}
+		}
+
+		GPS_Process();
 
 		//Check is current radiation more then alarm threshold
 		if((GWORK.rad_back > DevNVRAM.GSETTING.ALARM_THRESHOLD) && !GFLAGS.no_alarm && (GMODE.counter_mode == 0)) { GFLAGS.do_alarm = true; }
@@ -599,6 +602,7 @@ int main(void)
 		pwm_tone(0);
 		pwm_backlight(0);
 	}
+#endif
   }
     /* USER CODE END WHILE */
 
@@ -1028,7 +1032,7 @@ static void MX_GPIO_Init(void)
   LL_GPIO_ResetOutputPin(GPIOA, SPI1_CS_Pin|SPI1_SCK_Pin|SPI1_MOSI_Pin);
 
   /**/
-  LL_GPIO_ResetOutputPin(GPIOB, LL_GPIO_PIN_12);
+  LL_GPIO_ResetOutputPin(GPIOB, SPI1_RST_Pin|LL_GPIO_PIN_12|LL_GPIO_PIN_7);
 
   /**/
   GPIO_InitStruct.Pin = LL_GPIO_PIN_13;
@@ -1045,20 +1049,22 @@ static void MX_GPIO_Init(void)
   LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /**/
-  GPIO_InitStruct.Pin = SPI1_RST_Pin|BSET_Pin|BRSET_Pin;
+  GPIO_InitStruct.Pin = SPI1_RST_Pin|LL_GPIO_PIN_12;
+  GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
+  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+  LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /**/
+  GPIO_InitStruct.Pin = LL_GPIO_PIN_11|BSET_Pin|BRSET_Pin;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = LL_GPIO_PULL_UP;
   LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /**/
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_11;
-  GPIO_InitStruct.Mode = LL_GPIO_MODE_FLOATING;
-  LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /**/
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_12;
+  GPIO_InitStruct.Pin = LL_GPIO_PIN_7;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
-  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
   LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 

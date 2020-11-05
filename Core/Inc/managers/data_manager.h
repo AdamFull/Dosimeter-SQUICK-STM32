@@ -37,7 +37,7 @@ typedef struct {
 
 	uint32_t w25qxx_address;
 
-	uint32_t rad_sum;
+	volatile uint32_t rad_sum;
 	int32_t UTC;
 	uint32_t log_save_period;
 
@@ -49,14 +49,16 @@ typedef union {
 } NVRAM;
 
 typedef struct {
+	uint32_t voltage_req;
 	uint8_t time_min_old;
 	volatile uint8_t stat_time;
 	volatile uint8_t time_min, time_sec;
-	uint16_t sum_old;
+	volatile uint16_t sum_old;
 
 	uint16_t real_geigertime;
 	uint16_t transformer_pwm;
-	volatile uint16_t timer_time, timer_remain;
+	uint16_t timer_time;
+	volatile uint16_t timer_remain;
 
 	unsigned rad_dose_old;
 	volatile unsigned rad_back, rad_max, rad_dose;
@@ -93,7 +95,7 @@ typedef struct {
 } geiger_ui;
 
 typedef struct {
-	bool stop_timer;
+	volatile bool stop_timer;
 	bool next_step;
 	bool no_alarm;
 	bool do_alarm;
@@ -104,13 +106,14 @@ typedef struct {
 	bool is_low_voltage;
 	bool is_charging;
 	bool is_charged;
-	bool is_detected;
+	volatile bool is_detected;
 	bool is_memory_initialized;
 	bool active_hv_gen;
 	bool is_satellites_found;
 	bool is_tracking_enabled;
 	bool log_transfer;
 	bool is_monitor_enabled;
+	bool is_flash_initialized;
 
 	bool is_mean_mode;
 } geiger_flags;
@@ -123,6 +126,8 @@ typedef  enum {
 	HEAP_INIT_ERROR,
 
 } DINITSTATUS;
+
+void voltage_required();
 
 void Initialize_variables();
 void Initialize_data();

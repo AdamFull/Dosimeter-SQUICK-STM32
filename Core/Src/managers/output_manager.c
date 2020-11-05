@@ -91,7 +91,7 @@ void draw_statusbar(const char** bitmaps, bool* bitmap_enabled, size_t size){
 void draw_main(){
 
 	LCD_Clear();
-	int coeff = mapfloat(GMEANING.current_battery_voltage, BAT_ADC_MIN, BAT_ADC_MAX, 0, 8);             //Значение сдвига пикселей для визуализации заряда аккумулятора
+	int coeff = map(GMEANING.current_battery_voltage, BAT_ADC_MIN, BAT_ADC_MAX, 0, 8);             //Значение сдвига пикселей для визуализации заряда аккумулятора
 	bool show_battery = false;
 
 	//отрисовка этой части занимает 1.87 кб
@@ -126,6 +126,7 @@ void draw_main(){
 		if(GWORK.rad_back > 1000) LCD_write((float)GWORK.rad_back/1000, true);
 		else if(GWORK.rad_back > 1000000) LCD_write((float)GWORK.rad_back/1000000, true);
 		else LCD_write(GWORK.rad_back, false);
+		//LCD_write(GWORK.voltage_req, false);
 
 		LCD_SetCharSize(0);
 		LCD_AddToCursor(0, 3);
@@ -281,24 +282,24 @@ void draw_menu(){
 
 	switch (GUI.menu_page){
 		case 0:{
-			const char* current_page_puncts[5] = {S_MODE, S_SETTINGS, S_RESET, S_POFF, S_ABOUT};
-			draw_simple_menu_page(current_page_puncts, 5);
+			const char* current_page_puncts[] = {S_MODE, S_SETTINGS, S_RESET, S_POFF, S_DFU, S_ABOUT};
+			draw_simple_menu_page(current_page_puncts, 6);
 		}break;
 
 		case 1:{
-			const char* current_page_puncts[3] = {S_BACKGROUND, S_ACTIVITY, S_MODE_SEC};
+			const char* current_page_puncts[] = {S_BACKGROUND, S_ACTIVITY, S_MODE_SEC};
 			draw_simple_menu_page(current_page_puncts, 3);
 		}break;
 		//Меню настроек
 		case 2:{
-			const char* current_page_puncts[5] = {S_GCOUNTER, S_ADVANCED, S_TONE, S_BACKLIGHT, S_GPS};
-			const bool punct_values[5] = {false, false, GFLAGS.is_muted, (bool)DevNVRAM.GSETTING.LCD_BACKLIGHT, GFLAGS.is_tracking_enabled};
-			const bool skip_flags[5] = {true, true, false, false, false};
+			const char* current_page_puncts[] = {S_GCOUNTER, S_ADVANCED, S_TONE, S_BACKLIGHT, S_GPS};
+			const bool punct_values[] = {false, false, GFLAGS.is_muted, (bool)DevNVRAM.GSETTING.LCD_BACKLIGHT, GFLAGS.is_tracking_enabled};
+			const bool skip_flags[] = {true, true, false, false, false};
 			draw_checkbox_menu_page(current_page_puncts, punct_values, skip_flags, 5);
 		}break;
 		//Меню выбора режима
 		case 3:{
-			const char* current_page_puncts[3] = {S_SETTINGS, S_DOSE, S_ALL};
+			const char* current_page_puncts[] = {S_SETTINGS, S_DOSE, S_ALL};
 			draw_simple_menu_page(current_page_puncts, 3);
 		}break;
 		//Меню настройки режима активности
