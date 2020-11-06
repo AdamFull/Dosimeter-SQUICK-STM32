@@ -52,6 +52,7 @@
 
 volatile unsigned long ticks;
 extern uint16_t battery_adc_value, high_voltage_adc_value;
+extern bool screen_saver_state;
 
 extern geiger_flags GFLAGS;
 extern geiger_meaning GMEANING;
@@ -420,7 +421,7 @@ void TIM1_UP_IRQHandler(void)
 		}
   /* USER CODE END TIM1_UP_IRQn 0 */
   /* USER CODE BEGIN TIM1_UP_IRQn 1 */
-  GUI.update_required = true;
+  if(!screen_saver_state) GUI.update_required = true;
   /* USER CODE END TIM1_UP_IRQn 1 */
 }
 

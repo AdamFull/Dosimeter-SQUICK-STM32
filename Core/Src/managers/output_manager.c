@@ -41,6 +41,12 @@ int getNumOfDigits(uint32_t number){
 	return digits;
 }
 
+void clear_screen(){
+	LCD_Clear();
+	LCD_Update();
+}
+
+
 void beep() { //индикация каждой частички звуком светом
     if(!GFLAGS.is_muted && !GFLAGS.do_alarm){
         if(GetTick() - beep_timer > 1){
@@ -105,8 +111,8 @@ void draw_main(){
 		}
 	}
 
-	const char* bitmap_array[5] = {unmuted_bitmap, bell_bitmap, backlight_bitmap, satellite_bitmap, death_bitmap};
-	bool bitmap_status[5] = {GFLAGS.is_muted, !GFLAGS.no_alarm, (bool)(DevNVRAM.GSETTING.LCD_BACKLIGHT), GFLAGS.is_satellites_found && GFLAGS.is_tracking_enabled, GFLAGS.do_alarm };
+	const char* bitmap_array[] = {unmuted_bitmap, bell_bitmap, backlight_bitmap, satellite_bitmap, death_bitmap};
+	bool bitmap_status[] = {!GFLAGS.is_muted, !GFLAGS.no_alarm, (bool)(DevNVRAM.GSETTING.LCD_BACKLIGHT), GFLAGS.is_satellites_found && GFLAGS.is_tracking_enabled, GFLAGS.do_alarm };
 	draw_statusbar(bitmap_array, bitmap_status, 5);
 
 	LCD_SetCursor(LCD_X/2 - 5*2.5 , 0);
@@ -293,7 +299,7 @@ void draw_menu(){
 		//Меню настроек
 		case 2:{
 			const char* current_page_puncts[] = {S_GCOUNTER, S_ADVANCED, S_TONE, S_BACKLIGHT, S_GPS};
-			const bool punct_values[] = {false, false, GFLAGS.is_muted, (bool)DevNVRAM.GSETTING.LCD_BACKLIGHT, GFLAGS.is_tracking_enabled};
+			const bool punct_values[] = {false, false, !GFLAGS.is_muted, (bool)DevNVRAM.GSETTING.LCD_BACKLIGHT, GFLAGS.is_tracking_enabled};
 			const bool skip_flags[] = {true, true, false, false, false};
 			draw_checkbox_menu_page(current_page_puncts, punct_values, skip_flags, 5);
 		}break;

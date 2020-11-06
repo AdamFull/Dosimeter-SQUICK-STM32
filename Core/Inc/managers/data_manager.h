@@ -153,6 +153,7 @@ void Save_dose();
 void transmit_log();
 
 void Reset_dose();
+void Reset_settings();
 
 void Reset_activity_test();
 

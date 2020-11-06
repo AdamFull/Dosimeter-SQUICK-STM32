@@ -55,8 +55,10 @@
 
 /* USER CODE BEGIN PV */
 char rx_buffer[32];
-unsigned long current_millis;
-unsigned long gps_millis;
+unsigned long current_millis = 0;
+unsigned long gps_millis = 0;
+unsigned long screen_saver_millis = 0;
+bool screen_saver_state = false;
 
 GyverButton btn_set;
 GyverButton btn_reset;
@@ -99,6 +101,11 @@ void button_action();
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+void battery_safe_update(){
+	screen_saver_state = false;
+	screen_saver_millis = GetTick();
+}
 
 void SendMessage(char *message){
 	CDC_Transmit_FS(message, strlen(message));
@@ -254,9 +261,9 @@ void cursor_select(bool direction, bool editable, bool menu_mode){
 				}break;
 				case 3:{
 					switch (GUI.cursor){								//Стереть данные
-						case 0:{ GUI.menu_page = 0; }break;
-						case 1:{ GUI.menu_page = 0; }break;
-						case 2:{ GUI.menu_page = 0; }break;
+						case 0:{ Reset_settings(); GUI.menu_page = 0; }break;
+						case 1:{ Reset_dose(); GUI.menu_page = 0; }break;
+						case 2:{ Reset_dose(); Reset_settings(); GUI.menu_page = 0; }break;
 					}
 					GUI.cursor = 0;
 				}break;
@@ -320,6 +327,7 @@ void button_action(){
 	bool menu_mode = GUI.page == 2;
 
 	if(isHold(&btn_reset) && isHold(&btn_set)){
+		battery_safe_update();
 		if(!menu_mode){
 			GUI.page = 2;
 			GUI.menu_page = 0;
@@ -334,6 +342,7 @@ void button_action(){
 	}else if(isHold(&btn_set) && !menu_mode){
 		//if(!menu_mode && !isPress(btn_reset)) battery_request(true);
 	}else if(btn_reset_isHolded){											//Удержание кнопки ресет
+		battery_safe_update();
 		if(!menu_mode && !isPress(&btn_set)) GFLAGS.no_alarm = !GFLAGS.no_alarm;
 		if(menu_mode && !GFLAGS.is_editing_mode){										//Если находимся в меню
 			GFLAGS.is_detected = true;
@@ -355,14 +364,17 @@ void button_action(){
 		}
 		update_request();
 	}else if(isClick(&btn_reset) && !btn_reset_isHolded){					//Клик кнопки ресет
+		battery_safe_update();
 		if(!menu_mode && !GFLAGS.do_alarm) GFLAGS.is_muted = !GFLAGS.is_muted;
 		if(!menu_mode && GFLAGS.do_alarm) GFLAGS.no_alarm = !GFLAGS.no_alarm;
 		move_cursor(false, GFLAGS.is_editing_mode, menu_mode);
 		update_request();
 	}else if(btn_set_isHolded){												//Удержание кнопки сет
+		battery_safe_update();
 		cursor_select(true, GFLAGS.is_editing_mode, menu_mode);
 		update_request();
 	}else if(isClick(&btn_set) && !btn_set_isHolded){					//Клик кнопки сет
+		battery_safe_update();
 		if(!menu_mode && GMODE.counter_mode == 1 && !GFLAGS.next_step && GFLAGS.stop_timer){
 			GWORK.rad_max = GWORK.rad_back;
 			GWORK.rad_back = 0;
@@ -480,7 +492,8 @@ int main(void)
 	//Timer for idle screen disable
 
 	if((GMEANING.current_battery_voltage < BAT_ADC_MIN) && !GFLAGS.is_low_voltage) GFLAGS.is_low_voltage = true;		//Check, is battery low
-	GFLAGS.is_charging = false;//(GPIOB->IDR & LL_GPIO_PIN_11);
+
+	GFLAGS.is_charging = false;//!(bool)(GPIOB->IDR & LL_GPIO_PIN_11);
 	//if(is_low_voltage) low_battery_kill();
 
 	if(!GFLAGS.is_charging){
@@ -526,12 +539,13 @@ int main(void)
 		  }
 		  GFLAGS.log_transfer = false;
 		button_action();
+		GPS_Process();
+		GFLAGS.is_satellites_found = (GPS.GPGGA.Latitude > 0) && (GPS.GPGGA.Longitude > 0);								//Flag for check sat status
 
-		GFLAGS.is_charging = !(bool)LL_GPIO_ReadInputPort(GPIOB)&GPIO_IDR_IDR11;
-
+		/******************************************************************************************************************************/
 		//Timer for update voltage values
 		voltage_required();
-		if(GetTick() - current_millis > 100){
+		if(GetTick() - current_millis > 10){
 			current_millis = GetTick();
 			GMEANING.current_battery_voltage = get_battery_voltage();
 			GMEANING.current_high_voltage = get_high_voltage();
@@ -544,9 +558,21 @@ int main(void)
 			}else{
 				TIM2->CCR1 = 0;
 			}
-
 		}
 
+		/******************************************************************************************************************************/
+		if(!screen_saver_state){
+			if(GetTick() - screen_saver_millis > SCREEN_SAVER_TIME){
+				screen_saver_millis = GetTick();
+				screen_saver_state = true;
+				clear_screen();
+				TIM2->CCR1 = 0;
+				pwm_backlight(0);
+
+			}
+		}
+
+		/******************************************************************************************************************************/
 		//Timer for logger
 		if(GetTick() - gps_millis > DevNVRAM.GSETTING.log_save_period * 1000){
 			gps_millis = GetTick();
@@ -564,13 +590,11 @@ int main(void)
 			}
 		}
 
-		GPS_Process();
-
 		//Check is current radiation more then alarm threshold
 		if((GWORK.rad_back > DevNVRAM.GSETTING.ALARM_THRESHOLD) && !GFLAGS.no_alarm && (GMODE.counter_mode == 0)) { GFLAGS.do_alarm = true; }
 		else { if(GMODE.counter_mode == 0) GFLAGS.do_alarm = false; }
 
-		if(!GFLAGS.do_alarm){ if((bool)DevNVRAM.GSETTING.LCD_BACKLIGHT){ pwm_backlight(255); } else {pwm_backlight(0);} }//Disable or enable backlight after alarm
+		if(!GFLAGS.do_alarm && !screen_saver_state){ if((bool)DevNVRAM.GSETTING.LCD_BACKLIGHT){ pwm_backlight(255); } else {pwm_backlight(0);} }//Disable or enable backlight after alarm
 
 		//Alarm algorithm
 		if(!GFLAGS.no_alarm) {
@@ -580,21 +604,20 @@ int main(void)
 					pwm_tone(GFLAGS.is_alarm ? 100 : 200);
 					pwm_backlight(GFLAGS.is_alarm ? 255 : 0);
 					GFLAGS.is_alarm = !GFLAGS.is_alarm;
+					battery_safe_update();
 				}
 			}
 		}
 
-		GFLAGS.is_satellites_found = (GPS.GPGGA.Latitude > 0) && (GPS.GPGGA.Longitude > 0);								//Flag for check sat status
-
-		draw_update();
+		if(!screen_saver_state) draw_update();
 		beep();
 
 		//Save dose part
 		if(GMODE.counter_mode==0){
 			if(GWORK.rad_dose - GWORK.rad_dose_old > DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL){
 				GWORK.rad_dose_old = GWORK.rad_dose;
-
 				GWORK.rad_max = GWORK.rad_back;
+				Write_configuration();
 			}
 		}
 	}else{

@@ -29,7 +29,7 @@ uint8_t current_hour;
 unsigned long my_ticker = 0;
 
 void voltage_required(){
-	float coeff = 6.f - (1.f - ((float)GMEANING.current_battery_voltage/(float)BAT_ADC_MAX));
+	float coeff = 5.85f - (1.f - ((float)GMEANING.current_battery_voltage/(float)BAT_ADC_MAX));
 	GWORK.voltage_req =  ((float)DevNVRAM.GSETTING.GEIGER_VOLTAGE*(float)coeff);
 }
 
@@ -264,7 +264,6 @@ bool Read_configuration(){
 		Write_string_w25qxx(str);
 		Write_configuration();
 	}
-	voltage_required();
 }
 
 bool Write_configuration(){
@@ -296,8 +295,15 @@ bool Write_configuration(){
 }
 
 void Reset_dose(){
+	GWORK.rad_dose_old = 0;
 	DevNVRAM.GSETTING.rad_sum = 0;
-	ReadWrite_configuration();
+	Write_configuration();
+}
+
+void Reset_settings(){
+	W25qxx_EraseSector(0x1000);
+	Read_configuration();
+	Update_rad_buffer();
 }
 
 void Reset_activity_test(){

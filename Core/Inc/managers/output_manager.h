@@ -10,6 +10,7 @@
 
 #include "stdbool.h"
 
+void clear_screen();
 void beep();
 void draw_update();
 void update_request();
