@@ -493,7 +493,7 @@ int main(void)
 
 	if((GMEANING.current_battery_voltage < BAT_ADC_MIN) && !GFLAGS.is_low_voltage) GFLAGS.is_low_voltage = true;		//Check, is battery low
 
-	GFLAGS.is_charging = false;//!(bool)(GPIOB->IDR & LL_GPIO_PIN_11);
+	GFLAGS.is_charging = false;//(bool)(GPIOB->IDR & LL_GPIO_PIN_11);
 	//if(is_low_voltage) low_battery_kill();
 
 	if(!GFLAGS.is_charging){
@@ -601,7 +601,7 @@ int main(void)
 			if(GFLAGS.do_alarm){
 				if(GetTick()-GWORK.alarm_timer > 300){
 					GWORK.alarm_timer = GetTick();
-					pwm_tone(GFLAGS.is_alarm ? 100 : 200);
+					if(!GFLAGS.is_muted) pwm_tone(GFLAGS.is_alarm ? 100 : 200);
 					pwm_backlight(GFLAGS.is_alarm ? 255 : 0);
 					GFLAGS.is_alarm = !GFLAGS.is_alarm;
 					battery_safe_update();

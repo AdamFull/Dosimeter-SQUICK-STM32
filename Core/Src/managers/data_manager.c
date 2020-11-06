@@ -29,7 +29,7 @@ uint8_t current_hour;
 unsigned long my_ticker = 0;
 
 void voltage_required(){
-	float coeff = 5.85f - (1.f - ((float)GMEANING.current_battery_voltage/(float)BAT_ADC_MAX));
+	float coeff = 5.85f - (2*(1.f - ((float)GMEANING.current_battery_voltage/(float)BAT_ADC_MAX)));
 	GWORK.voltage_req =  ((float)DevNVRAM.GSETTING.GEIGER_VOLTAGE*(float)coeff);
 }
 

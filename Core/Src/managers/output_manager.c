@@ -129,10 +129,10 @@ void draw_main(){
 
 		LCD_SetCharSize(2);
 		LCD_SetCursor(0, 8);
-		if(GWORK.rad_back > 1000) LCD_write((float)GWORK.rad_back/1000, true);
+		/*if(GWORK.rad_back > 1000) LCD_write((float)GWORK.rad_back/1000, true);
 		else if(GWORK.rad_back > 1000000) LCD_write((float)GWORK.rad_back/1000000, true);
-		else LCD_write(GWORK.rad_back, false);
-		//LCD_write(GWORK.voltage_req, false);
+		else LCD_write(GWORK.rad_back, false);*/
+		LCD_write(GMEANING.current_high_voltage, false);
 
 		LCD_SetCharSize(0);
 		LCD_AddToCursor(0, 3);
@@ -155,9 +155,11 @@ void draw_main(){
 		LCD_DrawFastHLine(0,48,20,COLOR_BLACK);
 
 		LCD_SetCursor(0, 50);
-		if(GWORK.rad_dose > 1000) LCD_write((float)GWORK.rad_dose/1000, true);
+		/*if(GWORK.rad_dose > 1000) LCD_write((float)GWORK.rad_dose/1000, true);
 		else if(GWORK.rad_dose > 1000000) LCD_write((float)GWORK.rad_dose/1000000, true);
-		else LCD_write(GWORK.rad_dose, false);
+		else LCD_write(GWORK.rad_dose, false);*/
+		LCD_write(GWORK.voltage_req, false);
+
 		if(GWORK.rad_dose > 1000) LCD_print(T_MR);
 		else if(GWORK.rad_dose > 1000000) LCD_print(T_R);
 		else LCD_print(T_UR);
