@@ -27,7 +27,7 @@
 #include "stdbool.h"
 #include "managers/data_manager.h"
 #include "util.h"
-#include "util.h"
+#include "configuration.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -229,10 +229,10 @@ void EXTI1_IRQHandler(void)
     if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 1 || DevNVRAM.GSETTING.ACTIVE_COUNTERS == 3){
     	if(GMODE.counter_mode==0){    //Режим поиска
     		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-    		if(++DevNVRAM.GSETTING.rad_sum>999999UL*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
+    		if(GFLAGS.calculate_dose)if(++DevNVRAM.GSETTING.rad_sum>MAX_PARTICLES*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=MAX_PARTICLES*3600/GWORK.real_geigertime; //общая сумма импульсов
     		if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
     	}else if(GMODE.counter_mode==1){							//Режим измерения активности
-    		if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
+    		if(!GFLAGS.stop_timer) if(++GWORK.rad_back>MAX_PARTICLES*3600/GWORK.real_geigertime) GWORK.rad_back=MAX_PARTICLES*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
     	}else if(GMODE.counter_mode==2){							//Режим измерения активности
     		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
     	    	GUI.update_required = true;
@@ -259,10 +259,10 @@ void EXTI2_IRQHandler(void)
     if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 2 || DevNVRAM.GSETTING.ACTIVE_COUNTERS == 3){
     	if(GMODE.counter_mode==0){    //Режим поиска
     		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-    		if(++DevNVRAM.GSETTING.rad_sum>999999UL*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
+    		if(GFLAGS.calculate_dose)if(++DevNVRAM.GSETTING.rad_sum>MAX_PARTICLES*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=MAX_PARTICLES*3600/GWORK.real_geigertime; //общая сумма импульсов
     		if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
     	}else if(GMODE.counter_mode==1){							//Режим измерения активности
-    		if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
+    		if(!GFLAGS.stop_timer) if(++GWORK.rad_back>MAX_PARTICLES*3600/GWORK.real_geigertime) GWORK.rad_back=MAX_PARTICLES*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
     	}else if(GMODE.counter_mode==2){							//Режим измерения активности
     		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
     		GUI.update_required = true;
@@ -284,10 +284,10 @@ void EXTI3_IRQHandler(void)
 	if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 0){
 	    if(GMODE.counter_mode==0){    //Режим поиска
 	    	if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-	    	if(++DevNVRAM.GSETTING.rad_sum>999999UL*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
+	    	if(GFLAGS.calculate_dose)if(++DevNVRAM.GSETTING.rad_sum>MAX_PARTICLES*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=MAX_PARTICLES*3600/GWORK.real_geigertime; //общая сумма импульсов
 	    	if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
 	    }else if(GMODE.counter_mode==1){							//Режим измерения активности
-	    	if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
+	    	if(!GFLAGS.stop_timer) if(++GWORK.rad_back>MAX_PARTICLES*3600/GWORK.real_geigertime) GWORK.rad_back=MAX_PARTICLES*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
 	    }else if(GMODE.counter_mode==2){							//Режим измерения активности
 	    	if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
 	    	GUI.update_required = true;
@@ -350,24 +350,24 @@ void TIM1_UP_IRQHandler(void)
 		  LL_TIM_ClearFlag_UPDATE(TIM1);
 	  }
 
-	uint32_t tmp_buff=0;
+	uint64_t tmp_buff=0;
 
 	if(GMODE.counter_mode == 0){
 		for(uint8_t i=0; i<GWORK.real_geigertime; i++) tmp_buff+=GWORK.rad_buff[i]; //расчет фона мкР/ч
-		if(tmp_buff>999999) tmp_buff=999999; //переполнение
-		GWORK.rad_back=tmp_buff;
-		GWORK.stat_buff[GWORK.stat_time] = GWORK.rad_back; //Записываю текущее значение мкр/ч для расчёта погрешности
+		if(tmp_buff>MAX_PARTICLES) tmp_buff=MAX_PARTICLES; //переполнение
+
+		if(GFLAGS.particle_mode) GWORK.rad_back=tmp_buff/DevNVRAM.GSETTING.sensor_area;
+		else GWORK.rad_back=tmp_buff;
+
+		if(!GFLAGS.particle_mode) GWORK.stat_buff[GWORK.stat_time] = GWORK.rad_back; //Записываю текущее значение мкр/ч для расчёта погрешности
 
 		Calculate_std(); //- crashing
 
-		if(GWORK.rad_back>GWORK.rad_max) GWORK.rad_max=GWORK.rad_back; //фиксируем максимум фона
+		if(GWORK.rad_back>GWORK.rad_max) GWORK.rad_max=GWORK.rad_back;
+
 		for(uint8_t k=GWORK.real_geigertime-1; k>0; k--) GWORK.rad_buff[k]=GWORK.rad_buff[k-1]; //перезапись массива
 
 		GWORK.rad_buff[0]=0; //сбрасываем счетчик импульсов
-
-		if(GFLAGS.is_mean_mode){
-			GWORK.rad_back = (uint32_t)GMEANING.mean;
-		}
 
 		if(GWORK.stat_time > GWORK.real_geigertime) GWORK.stat_time = 0; //Счётчик для расчёта статистической погрешности
 		else GWORK.stat_time++;
@@ -378,7 +378,7 @@ void TIM1_UP_IRQHandler(void)
 		//for(uint8_t i=0;i<96;i++) GUI.mass[i]=GUI.mass[i] * sqrt(GWORK.rad_back/GWORK.rad_max);
 		if(GUI.x_p<95)GUI.x_p++;
 		if(GUI.x_p==95){
-			for(uint8_t i=0;i<95;i++)GUI.mass[i]=GUI.mass[i+1];
+			for(uint8_t i=0;i<LCD_X_SIZE-1;i++)GUI.mass[i]=GUI.mass[i+1];
 		}
 		if(GWORK.rad_max > 1) GWORK.rad_max--;		//Потихоньку сбрасываем максиму
 
@@ -405,7 +405,7 @@ void TIM1_UP_IRQHandler(void)
 		GUI.mass[GUI.x_p]=map(GWORK.rad_buff[0], 0, GWORK.rad_max < 40 ? 40 : GWORK.rad_max, 0, 19);
 	    if(GUI.x_p<95)GUI.x_p++;
 	    if(GUI.x_p==95){
-	        for(uint8_t i=0;i<95;i++)GUI.mass[i]=GUI.mass[i+1];
+	        for(uint8_t i=0;i<LCD_X_SIZE-1;i++)GUI.mass[i]=GUI.mass[i+1];
 	    }
 
 		if(GWORK.rad_max > 1) GWORK.rad_max--;		//Потихоньку сбрасываем максимум

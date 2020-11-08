@@ -13,6 +13,8 @@ extern geiger_mode GMODE;
 extern NVRAM DevNVRAM;
 extern geiger_ui GUI;
 
+uint8_t submode_cursor = 0;
+
 /*****************************************************************************************************************/
 void init_inputs(){
 	gbuttonInit(&btn_set, BUTTON_SET_PORT, BUTTON_SET_PIN, HIGH_PULL, NORM_OPEN);
@@ -39,7 +41,8 @@ void move_cursor(bool direction, bool editable, bool menu_mode){
 					case 0:{ if(GUI.editable < 250) GUI.editable++; } break;
 					case 1:{ if(GUI.editable < 40) GUI.editable+=5; } break;
 					case 2:{ if(GUI.editable < 500) GUI.editable+=10; } break;
-					case 3:{ if(GUI.editable < 3) GUI.editable++; } break;
+					case 3:{ if(GUI.editable < 50) GUI.editable++; } break;
+					case 4:{ if(GUI.editable < 3) GUI.editable++; } break;
 				}
 			}else if(GUI.menu_page == 7){
 				switch (GUI.cursor){
@@ -61,7 +64,8 @@ void move_cursor(bool direction, bool editable, bool menu_mode){
 					case 0:{ if(GUI.editable > 5) GUI.editable--; } break;
 					case 1:{ if(GUI.editable > 5) GUI.editable-=5; } break;
 					case 2:{ if(GUI.editable > 100) GUI.editable-=10; } break;
-					case 3:{ if(GUI.editable > 0) GUI.editable--; } break;
+					case 3:{ if(GUI.editable > 1) GUI.editable--; } break;
+					case 4:{ if(GUI.editable > 0) GUI.editable--; } break;
 				}
 			}else if(GUI.menu_page == 7){
 				switch (GUI.cursor){
@@ -84,7 +88,7 @@ void move_cursor(bool direction, bool editable, bool menu_mode){
 					case 3:{ if(GUI.cursor < 2) GUI.cursor++; } break;
 					case 4:{ if(GUI.cursor < 2) GUI.cursor++; } break;
 					case 5:{ if(GUI.cursor < 1) GUI.cursor++; } break;
-					case 6:{ if(GUI.cursor < 3) GUI.cursor++; } break;
+					case 6:{ if(GUI.cursor < 4) GUI.cursor++; } break;
 					case 7:{ if(GUI.cursor < 4) GUI.cursor++; } break;
 				}
 			}
@@ -118,7 +122,8 @@ void cursor_select(bool direction, bool editable, bool menu_mode){
 					case 0:{ Set_setting(&DevNVRAM.GSETTING.GEIGER_TIME, (uint32_t)GUI.editable); }break;
 					case 1:{ Set_setting(&DevNVRAM.GSETTING.GEIGER_ERROR, (uint32_t)GUI.editable); }break;
 					case 2:{ Set_setting(&DevNVRAM.GSETTING.GEIGER_VOLTAGE, (uint32_t)GUI.editable); }break;
-					case 3:{ Set_setting(&DevNVRAM.GSETTING.ACTIVE_COUNTERS, (uint32_t)GUI.editable); }break;
+					case 3:{ Set_setting(&DevNVRAM.GSETTING.sensor_area, (uint32_t)GUI.editable); }break;
+					case 4:{ Set_setting(&DevNVRAM.GSETTING.ACTIVE_COUNTERS, (uint32_t)GUI.editable); }break;
 				}
 			}else if(GUI.menu_page == 7){
 				switch (GUI.cursor){
@@ -199,7 +204,8 @@ void cursor_select(bool direction, bool editable, bool menu_mode){
 							case 0:{ GUI.editable = DevNVRAM.GSETTING.GEIGER_TIME; }break;
 							case 1:{ GUI.editable = DevNVRAM.GSETTING.GEIGER_ERROR; }break;
 							case 2:{ GUI.editable = DevNVRAM.GSETTING.GEIGER_VOLTAGE; }break;
-							case 3:{ GUI.editable = DevNVRAM.GSETTING.ACTIVE_COUNTERS; }break;
+							case 3:{ GUI.editable = DevNVRAM.GSETTING.sensor_area; }break;
+							case 4:{ GUI.editable = DevNVRAM.GSETTING.ACTIVE_COUNTERS; }break;
 						}
 						GFLAGS.is_editing_mode = true;
 					}break;
@@ -279,6 +285,11 @@ void button_action(){
 		update_request();
 	}else if(isClick(&btn_set) && !btn_set_isHolded){					//Клик кнопки сет
 		battery_safe_update();
+		if(!menu_mode && !GFLAGS.do_alarm){
+			if(++submode_cursor > 2) submode_cursor = 0;
+			GWORK.rad_max = 0;
+			memset(GWORK.rad_buff, 0, GWORK.real_geigertime);
+		}
 		if(!menu_mode && GMODE.counter_mode == 1 && !GFLAGS.next_step && GFLAGS.stop_timer){
 			GWORK.rad_max = GWORK.rad_back;
 			GWORK.rad_back = 0;

@@ -38,6 +38,7 @@ typedef struct {
 	uint32_t w25qxx_address;
 
 	volatile uint32_t rad_sum;
+	uint32_t sensor_area;
 	uint32_t log_save_period;
 
 } geiger_settings;
@@ -112,6 +113,8 @@ typedef struct {
 	bool log_transfer;
 	bool is_monitor_enabled;
 	bool is_flash_initialized;
+	bool particle_mode;
+	bool calculate_dose;
 
 	bool is_mean_mode;
 } geiger_flags;

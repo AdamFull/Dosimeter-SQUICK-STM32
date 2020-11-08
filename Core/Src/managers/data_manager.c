@@ -77,6 +77,8 @@ void Initialize_variables(){
 	GFLAGS.active_hv_gen = false;
 	GFLAGS.is_mean_mode = false;
 	GFLAGS.is_flash_initialized = false;
+	GFLAGS.particle_mode = false;
+	GFLAGS.calculate_dose = true;
 
 	GUI.counter = 0;
 	GUI.cursor = 0;
@@ -263,7 +265,7 @@ bool Read_configuration(){
 		memset(DevNVRAM.data32, 0, sizeof(DevNVRAM.data32));
 
 		DevNVRAM.GSETTING.CONFIG_KEY = GOOD_CONFIG_KEY;
-		DevNVRAM.GSETTING.GEIGER_TIME = 38;
+		DevNVRAM.GSETTING.GEIGER_TIME = 21;
 		DevNVRAM.GSETTING.GEIGER_ERROR = 2;
 		DevNVRAM.GSETTING.GEIGER_VOLTAGE = 400;
 		DevNVRAM.GSETTING.LCD_CONTRAST = 15;
@@ -274,6 +276,7 @@ bool Read_configuration(){
 		DevNVRAM.GSETTING.ALARM_THRESHOLD = 100;
 		DevNVRAM.GSETTING.rad_sum = 0;
 		DevNVRAM.GSETTING.w25qxx_address = 0x00001000;
+		DevNVRAM.GSETTING.sensor_area = 7;
 		DevNVRAM.GSETTING.log_save_period = 30;
 
 		//Memory is clear, first init. Writing columns

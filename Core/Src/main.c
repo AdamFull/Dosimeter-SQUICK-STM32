@@ -74,6 +74,8 @@ uint8_t strbuffer[64] = {0};
 extern uint8_t current_hour;
 extern uint8_t current_minutes;
 extern uint8_t current_seconds;
+
+extern uint8_t submode_cursor;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -149,7 +151,6 @@ int main(void)
    init_inputs();
 
   init_outputs();
-
   GMODE.counter_mode = 0;
 
   //Enable timers
@@ -226,6 +227,25 @@ int main(void)
 		  }
 		  GFLAGS.log_transfer = false;
 		button_action();
+
+		switch(submode_cursor){
+		case 0:
+			GFLAGS.is_mean_mode = false;
+			GFLAGS.particle_mode = false;
+			GFLAGS.calculate_dose = true;;
+			break;
+		case 1:
+			GFLAGS.is_mean_mode = false;
+			GFLAGS.particle_mode = true;
+			GFLAGS.calculate_dose = false;
+			GFLAGS.no_alarm = true;
+			break;
+		case 2:
+			GFLAGS.is_mean_mode = true;
+			GFLAGS.particle_mode = false;
+			GFLAGS.calculate_dose = true;
+			break;
+		}
 
 		/******************************************************************************************************************************/
 		//Timer for update voltage values

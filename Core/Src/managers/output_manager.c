@@ -155,21 +155,37 @@ void draw_main(){
 
 		LCD_SetCharSize(2);
 		LCD_SetCursor(0, 8);
-		if(GWORK.rad_back > 1000) LCD_write((float)GWORK.rad_back/1000, true);
-		else if(GWORK.rad_back > 1000000) LCD_write((float)GWORK.rad_back/1000000, true);
-		else LCD_write(GWORK.rad_back, false);
+		if(!GFLAGS.particle_mode){
+			if(GFLAGS.is_mean_mode){
+				if(GMEANING.mean > 1000) LCD_write(GMEANING.mean/1000, true);
+				else if(GMEANING.mean > 1000000) LCD_write(GMEANING.mean/1000000, true);
+				else LCD_write(GMEANING.mean, false);
+			}else{
+				if(GWORK.rad_back > 1000) LCD_write((float)GWORK.rad_back/1000, true);
+				else if(GWORK.rad_back > 1000000) LCD_write((float)GWORK.rad_back/1000000, true);
+				else LCD_write(GWORK.rad_back, false);
+			}
+
+
+			LCD_SetCharSize(0);
+			LCD_AddToCursor(0, 3);
+			LCD_JustDrawChar(0x60);
+			LCD_write(deviation, false);
+			LCD_print("%");
+
+			LCD_SetCursor(0, 23);
+			if(GWORK.rad_back > 1000) LCD_print(T_MRH);
+			else if(GWORK.rad_back > 1000000) LCD_print(T_RH);
+			else LCD_print(T_URH);
+		}else{
+			LCD_write(GWORK.rad_back, false);
+			LCD_SetCharSize(0);
+			LCD_SetCursor(0, 23);
+			LCD_print(T_PCCM2);
+
+		}
+
 		//LCD_write(GMEANING.current_high_voltage, false);
-
-		LCD_SetCharSize(0);
-		LCD_AddToCursor(0, 3);
-		LCD_JustDrawChar(0x60);
-		LCD_write(deviation, false);
-		LCD_print("%");
-
-		LCD_SetCursor(0, 23);
-		if(GWORK.rad_back > 1000) LCD_print(T_MRH);
-		else if(GWORK.rad_back > 1000000) LCD_print(T_RH);
-		else LCD_print(T_URH);
 
 		LCD_SetCharSize(0);
 		LCD_SetCursor(0, 33);
@@ -355,10 +371,10 @@ void draw_menu(){
 	        }break;
 	        //Кастомные настройки счётчика
 	        case 6:{
-	        	const char* current_page_puncts[] = {S_GTIME, S_ERROR, S_VOLTAGE, S_GEIGER_MODE};
-	        	const int16_t current_page_values[] = {DevNVRAM.GSETTING.GEIGER_TIME, DevNVRAM.GSETTING.GEIGER_ERROR, DevNVRAM.GSETTING.GEIGER_VOLTAGE, DevNVRAM.GSETTING.ACTIVE_COUNTERS};
-	        	const char current_page_postfixes[] = {'s', '%', 'V', ' '};
-	        	draw_editable_menu_page(current_page_puncts, current_page_values, current_page_postfixes, 4);
+	        	const char* current_page_puncts[] = {S_GTIME, S_ERROR, S_VOLTAGE, S_SENSOR_AREA, S_GEIGER_MODE};
+	        	const int16_t current_page_values[] = {DevNVRAM.GSETTING.GEIGER_TIME, DevNVRAM.GSETTING.GEIGER_ERROR, DevNVRAM.GSETTING.GEIGER_VOLTAGE, DevNVRAM.GSETTING.sensor_area, DevNVRAM.GSETTING.ACTIVE_COUNTERS};
+	        	const char current_page_postfixes[] = {'s', '%', 'V', 'c', ' '};
+	        	draw_editable_menu_page(current_page_puncts, current_page_values, current_page_postfixes, 5);
 	        }break;
 	        //Advanced settings
 	        case 7:{
