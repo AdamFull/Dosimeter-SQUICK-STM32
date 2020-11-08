@@ -33,8 +33,8 @@
 #define LCD_X_SIZE 96
 #define LCD_Y_SIZE 68
 
-//#define LANGUAGE_RU
-#define LANGUAGE_EN
+#define LANGUAGE_RU
+//#define LANGUAGE_EN
 
 #define PAGES 9
 
