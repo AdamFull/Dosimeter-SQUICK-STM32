@@ -38,7 +38,6 @@ typedef struct {
 	uint32_t w25qxx_address;
 
 	volatile uint32_t rad_sum;
-	int32_t UTC;
 	uint32_t log_save_period;
 
 } geiger_settings;
@@ -109,7 +108,6 @@ typedef struct {
 	volatile bool is_detected;
 	bool is_memory_initialized;
 	bool active_hv_gen;
-	bool is_satellites_found;
 	bool is_tracking_enabled;
 	bool log_transfer;
 	bool is_monitor_enabled;

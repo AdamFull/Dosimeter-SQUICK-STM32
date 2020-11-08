@@ -27,7 +27,6 @@
 #include "stdbool.h"
 #include "managers/data_manager.h"
 #include "util.h"
-#include "libs/GPS.h"
 #include "util.h"
 /* USER CODE END Includes */
 
@@ -60,8 +59,6 @@ extern geiger_work GWORK;
 extern geiger_mode GMODE;
 extern NVRAM DevNVRAM;
 extern geiger_ui GUI;
-
-extern GPS_t GPS;
 
 extern USBD_CDC_ItfTypeDef USBD_Interface_fops_FS;
 
@@ -224,25 +221,23 @@ void SysTick_Handler(void)
 void EXTI1_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI1_IRQn 0 */
-	if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 1 || DevNVRAM.GSETTING.ACTIVE_COUNTERS == 3){
-	    if(GMODE.counter_mode==0){    //Режим поиска
-	    	if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-	    	if(++DevNVRAM.GSETTING.rad_sum>999999UL*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
-	    	if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
-	    }else if(GMODE.counter_mode==1){							//Режим измерения активности
-	    	if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
-	    }else if(GMODE.counter_mode==2){							//Режим измерения активности
-	    	if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-	    	GUI.update_required = true;
-	    }
-	    		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
-	}
   /* USER CODE END EXTI1_IRQn 0 */
   if (LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_1) != RESET)
   {
     LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_1);
     /* USER CODE BEGIN LL_EXTI_LINE_1 */
-
+    if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 1 || DevNVRAM.GSETTING.ACTIVE_COUNTERS == 3){
+    	if(GMODE.counter_mode==0){    //Режим поиска
+    		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
+    		if(++DevNVRAM.GSETTING.rad_sum>999999UL*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
+    		if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
+    	}else if(GMODE.counter_mode==1){							//Режим измерения активности
+    		if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
+    	}else if(GMODE.counter_mode==2){							//Режим измерения активности
+    		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
+    	    	GUI.update_required = true;
+    	}
+    }
     /* USER CODE END LL_EXTI_LINE_1 */
   }
   /* USER CODE BEGIN EXTI1_IRQn 1 */
@@ -256,25 +251,23 @@ void EXTI1_IRQHandler(void)
 void EXTI2_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI2_IRQn 0 */
-	if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 2 || DevNVRAM.GSETTING.ACTIVE_COUNTERS == 3){
-	    if(GMODE.counter_mode==0){    //Режим поиска
-	    	if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-	    		if(++DevNVRAM.GSETTING.rad_sum>999999UL*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
-	    		if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
-	    }else if(GMODE.counter_mode==1){							//Режим измерения активности
-	    	if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
-	    }else if(GMODE.counter_mode==2){							//Режим измерения активности
-	    	if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-	    	GUI.update_required = true;
-	    }
-	    		//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
-	}
   /* USER CODE END EXTI2_IRQn 0 */
   if (LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_2) != RESET)
   {
     LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_2);
     /* USER CODE BEGIN LL_EXTI_LINE_2 */
-
+    if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 2 || DevNVRAM.GSETTING.ACTIVE_COUNTERS == 3){
+    	if(GMODE.counter_mode==0){    //Режим поиска
+    		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
+    		if(++DevNVRAM.GSETTING.rad_sum>999999UL*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=999999UL*3600/GWORK.real_geigertime; //общая сумма импульсов
+    		if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
+    	}else if(GMODE.counter_mode==1){							//Режим измерения активности
+    		if(!GFLAGS.stop_timer) if(++GWORK.rad_back>999999UL*3600/GWORK.real_geigertime) GWORK.rad_back=999999UL*3600/GWORK.real_geigertime; //Сумма импульсов для режима измерения
+    	}else if(GMODE.counter_mode==2){							//Режим измерения активности
+    		if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
+    		GUI.update_required = true;
+    	}
+    }
     /* USER CODE END LL_EXTI_LINE_2 */
   }
   /* USER CODE BEGIN EXTI2_IRQn 1 */
@@ -299,7 +292,6 @@ void EXTI3_IRQHandler(void)
 	    	if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
 	    	GUI.update_required = true;
 	    }
-					//ADCManager::pwm_PD3(datamgr.pwm_converter + 10);
 	}
   /* USER CODE END EXTI3_IRQn 0 */
   if (LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_3) != RESET)
@@ -449,31 +441,6 @@ void SPI2_IRQHandler(void)
   /* USER CODE BEGIN SPI2_IRQn 1 */
 
   /* USER CODE END SPI2_IRQn 1 */
-}
-
-/**
-  * @brief This function handles USART1 global interrupt.
-  */
-void USART1_IRQHandler(void)
-{
-  /* USER CODE BEGIN USART1_IRQn 0 */
-	if(LL_USART_IsActiveFlag_RXNE(USART1) && LL_USART_IsEnabledIT_RXNE(USART1)){
-		GPS_CallBack();
-	}else{
-		if(LL_USART_IsActiveFlag_ORE(USART1)){
-	      (void) USART1->DR;
-	    }else if(LL_USART_IsActiveFlag_FE(USART1)){
-	      (void) USART1->DR;
-	    }else if(LL_USART_IsActiveFlag_NE(USART1)){
-	      (void) USART1->DR;
-	    }
-	}
-
-
-  /* USER CODE END USART1_IRQn 0 */
-  /* USER CODE BEGIN USART1_IRQn 1 */
-
-  /* USER CODE END USART1_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */

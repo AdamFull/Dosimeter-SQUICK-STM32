@@ -25,14 +25,19 @@ uint32_t flash_init_attempts = 0;
 
 DINITSTATUS device_status;
 
-uint8_t current_hour;
+uint8_t current_hour = 0;
+uint8_t current_minutes = 0;
+uint8_t current_seconds = 0;
 unsigned long my_ticker = 0;
 
+/*****************************************************************************************************************/
 void voltage_required(){
-	float coeff = 5.85f - (2*(1.f - ((float)GMEANING.current_battery_voltage/(float)BAT_ADC_MAX)));
-	GWORK.voltage_req =  ((float)DevNVRAM.GSETTING.GEIGER_VOLTAGE*(float)coeff);
+	//float coeff = 5.85f + (1.f - ((float)GMEANING.current_battery_voltage/(float)BAT_ADC_MAX))*1.3f;
+	//GWORK.voltage_req =  ((float)DevNVRAM.GSETTING.GEIGER_VOLTAGE*(float)coeff);
+	GWORK.voltage_req = DevNVRAM.GSETTING.GEIGER_VOLTAGE*6;
 }
 
+/*****************************************************************************************************************/
 void Initialize_variables(){
 
 	GWORK.voltage_req = 0;
@@ -83,6 +88,7 @@ void Initialize_variables(){
 
 }
 
+/*****************************************************************************************************************/
 uint8_t* separate_uint32_t(uint32_t value){
 	static uint8_t bytes[4];
 	bytes[0] = (value >> 24) & 0xFF;
@@ -92,6 +98,7 @@ uint8_t* separate_uint32_t(uint32_t value){
 	return bytes;
 }
 
+/*****************************************************************************************************************/
 bool Write_4byte(uint32_t value, uint32_t start_address){
 	uint8_t *bytes = separate_uint32_t(value);
 	uint32_t current_addr = start_address;
@@ -102,6 +109,7 @@ bool Write_4byte(uint32_t value, uint32_t start_address){
 	return true;
 }
 
+/*****************************************************************************************************************/
 uint32_t Read_4byte(uint32_t start_address){
 	uint32_t value;
 	uint8_t bytes[4];
@@ -114,6 +122,7 @@ uint32_t Read_4byte(uint32_t start_address){
 	return value;
 }
 
+/*****************************************************************************************************************/
 bool Init_w25qxx(){
 	LL_GPIO_SetOutputPin(GPIOB, LL_GPIO_PIN_12);
 	uint32_t timeout = 0;
@@ -132,6 +141,7 @@ bool Init_w25qxx(){
 	return true;
 }
 
+/*****************************************************************************************************************/
 bool Write_string_w25qxx(uint8_t* str){
 	if((w25qxx.CapacityInKiloByte*1024) - (DevNVRAM.GSETTING.w25qxx_address + strlen(str)) > 0){
 		for(size_t i = 0; i < strlen(str); i++){
@@ -147,10 +157,12 @@ bool Write_string_w25qxx(uint8_t* str){
 
 }
 
+/*****************************************************************************************************************/
 bool Read_string_w25qxx(uint32_t addr){
 
 }
 
+/*****************************************************************************************************************/
 bool Erase_w25qxx(){
 	uint8_t first_byte;
 	W25qxx_EraseChip();
@@ -159,6 +171,7 @@ bool Erase_w25qxx(){
 	return (first_byte == 0x0 || first_byte == 0xFF);
 }
 
+/*****************************************************************************************************************/
 void Initialize_data(){
 	if(Init_w25qxx()){
 		Initialize_variables();
@@ -171,6 +184,7 @@ void Initialize_data(){
 	}
 }
 
+/*****************************************************************************************************************/
 void Update_rad_buffer(){
 	if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 3) GWORK.real_geigertime = DevNVRAM.GSETTING.GEIGER_TIME/2;
 	else GWORK.real_geigertime = DevNVRAM.GSETTING.GEIGER_TIME;
@@ -190,8 +204,10 @@ void Update_rad_buffer(){
 	}
 }
 
+/*****************************************************************************************************************/
 void Set_setting(uint32_t *value, uint32_t new_value){ *value = new_value; }
 
+/*****************************************************************************************************************/
 void Accept_settings(){
 	if(Write_configuration()){
 		LCD_SetContrast(DevNVRAM.GSETTING.LCD_CONTRAST);
@@ -202,10 +218,12 @@ void Accept_settings(){
 	}
 }
 
+/*****************************************************************************************************************/
 void Reset_to_defaults(){
 
 }
 
+/*****************************************************************************************************************/
 uint32_t GetRamFree(){
 	size_t clear_blocks = 0;
 	uint32_t l_Address = RAM_START_ADDR;
@@ -216,6 +234,7 @@ uint32_t GetRamFree(){
 	return clear_blocks * 4;
 }
 
+/*****************************************************************************************************************/
 uint32_t GetRomFree(){
 	uint32_t clear_blocks = 0;
 	uint32_t l_Address = FLASH_START_ADDR;
@@ -226,6 +245,7 @@ uint32_t GetRomFree(){
 	return clear_blocks * 4;
 }
 
+/*****************************************************************************************************************/
 bool Read_configuration(){
 	uint32_t readed_mem;
 	uint8_t array_len = 14;
@@ -256,7 +276,6 @@ bool Read_configuration(){
 		DevNVRAM.GSETTING.ALARM_THRESHOLD = 100;
 		DevNVRAM.GSETTING.rad_sum = 0;
 		DevNVRAM.GSETTING.w25qxx_address = 0x00001000;
-		DevNVRAM.GSETTING.UTC = 3;
 		DevNVRAM.GSETTING.log_save_period = 30;
 
 		//Memory is clear, first init. Writing columns
@@ -266,6 +285,7 @@ bool Read_configuration(){
 	}
 }
 
+/*****************************************************************************************************************/
 bool Write_configuration(){
 	uint32_t l_Address, l_Index, l_Error;
 	uint8_t array_len = 14;
@@ -294,18 +314,27 @@ bool Write_configuration(){
 	return true;
 }
 
+/*****************************************************************************************************************/
+/*********************************************Reset accumulated dose**********************************************/
+/*****************************************************************************************************************/
 void Reset_dose(){
 	GWORK.rad_dose_old = 0;
 	DevNVRAM.GSETTING.rad_sum = 0;
 	Write_configuration();
 }
 
+/*****************************************************************************************************************/
+/*******************************************Reset settings to defaults********************************************/
+/*****************************************************************************************************************/
 void Reset_settings(){
 	W25qxx_EraseSector(0x1000);
 	Read_configuration();
 	Update_rad_buffer();
 }
 
+/*****************************************************************************************************************/
+/********************************************Reset activity test data*********************************************/
+/*****************************************************************************************************************/
 void Reset_activity_test(){
 	GFLAGS.is_alarm = false;
 	GWORK.rad_max = 0;
@@ -319,6 +348,9 @@ void Reset_activity_test(){
 	GUI.page = 1;
 }
 
+/*****************************************************************************************************************/
+/****************************************Standart deviation calculations******************************************/
+/*****************************************************************************************************************/
 void Calculate_std(){
 	uint64_t _sum = 0;
 	for(unsigned i = 0; i < GWORK.real_geigertime; i++) _sum+=GWORK.stat_buff[i];
@@ -328,6 +360,7 @@ void Calculate_std(){
 	GMEANING.std = (float)_sum/(float)(GWORK.real_geigertime-1);
 }
 
+/*****************************************************************************************************************/
 void transmit_log(){
 
 }

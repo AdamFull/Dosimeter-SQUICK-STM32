@@ -8,15 +8,14 @@
 #include "stdint.h"
 #include "stdbool.h"
 #include "string.h"
+#include "managers/output_manager.h"
 #include "managers/data_manager.h"
-#include "libs/LCD_1202.h"
 
 #include "language.h"
 #include "libs/GFX_font.h"
 #include "util.h"
 
 #include "libs/w25qxx.h"
-#include "libs/GPS.h"
 
 #include "configuration.h"
 
@@ -27,26 +26,49 @@ extern geiger_work GWORK;
 extern NVRAM DevNVRAM;
 extern geiger_flags GFLAGS;
 
-extern GPS_t GPS;
 extern uint8_t current_hour;
+extern uint8_t current_minutes;
 
 #define settings_puncts 4
 #define asettings_puncts 3
 
 unsigned long beep_timer = 0;
+LCD_CONFIG lcd_config_g;
 
+void draw_simple_menu_page(const char**, uint32_t);
+void draw_editable_menu_page(const char**, int16_t*, char*, uint32_t);
+void draw_checkbox_menu_page(const char**, bool*, bool*, uint32_t);
+
+/*****************************************************************************************************************/
+void init_outputs(){
+	lcd_config_g.MOSIPORT = DISPLAY_MOSI_PORT;
+	lcd_config_g.MOSIPIN = DISPLAY_MOSI_PIN;
+	lcd_config_g.SCKPORT = DISPLAY_SCK_PORT;
+	lcd_config_g.SCKPIN = DISPLAY_SCK_PIN;
+	lcd_config_g.CSPORT = DISPLAY_CS_PORT;
+	lcd_config_g.CSPIN = DISPLAY_CS_PIN;
+	lcd_config_g.RESPORT = DISPLAY_RST_PORT;
+	lcd_config_g.RESPIN = DISPLAY_RST_PIN;
+
+	LCD_Init(lcd_config_g);
+	LCD_SetContrast(10);
+	LCD_Flip();
+}
+
+/*****************************************************************************************************************/
 int getNumOfDigits(uint32_t number){
 	int digits=1; uint32_t num = number;
 	while ((num/=10) > 0) digits++;
 	return digits;
 }
 
+/*****************************************************************************************************************/
 void clear_screen(){
 	LCD_Clear();
 	LCD_Update();
 }
 
-
+/*****************************************************************************************************************/
 void beep() { //индикация каждой частички звуком светом
     if(!GFLAGS.is_muted && !GFLAGS.do_alarm){
         if(GetTick() - beep_timer > 1){
@@ -63,6 +85,7 @@ void beep() { //индикация каждой частички звуком с
     }
 }
 
+/*****************************************************************************************************************/
 void draw_update(){
 	if(GUI.update_required){
 		switch (GUI.page){
@@ -75,25 +98,28 @@ void draw_update(){
 	}
 }
 
+/*****************************************************************************************************************/
 void update_request(){
 	GUI.update_required = true;
 }
 
+/*****************************************************************************************************************/
 void draw_logo(){
 
 }
 
-void draw_statusbar(const char** bitmaps, bool* bitmap_enabled, size_t size){
-	size_t cur_index = 0;
-	for(size_t i = 0; i < size; i++){
+/*****************************************************************************************************************/
+void draw_statusbar(const char** bitmaps, bool* bitmap_enabled, uint32_t size){
+	uint32_t cur_index = 0;
+	for(uint32_t i = 0; i < size; i++){
 		if(bitmap_enabled[i]){
-			LCD_DrawBitmap(LCD_X-9, 9+9*cur_index, bitmaps[i], 8, 8, COLOR_BLACK);
+			LCD_DrawBitmap(LCD_X_SIZE-9, 9+9*cur_index, bitmaps[i], 8, 8, COLOR_BLACK);
 			cur_index++;
 		}
 	}
 }
 
-//Draw mode screens
+/*****************************************************************************************************************/
 void draw_main(){
 
 	LCD_Clear();
@@ -104,23 +130,23 @@ void draw_main(){
 
 	if(!GFLAGS.is_charging && !show_battery){
 		if(!GFLAGS.is_charging){
-			LCD_DrawBitmap(LCD_X-11, 1, battery_bitmap, 10, 8, COLOR_BLACK);
-			LCD_FillRect(LCD_X-10, 3, coeff, 4, COLOR_BLACK);
+			LCD_DrawBitmap(LCD_X_SIZE-11, 1, battery_bitmap, 10, 8, COLOR_BLACK);
+			LCD_FillRect(LCD_X_SIZE-10, 3, coeff, 4, COLOR_BLACK);
 		}else{
-			LCD_DrawBitmap(LCD_X-11, 1, charge_bitmap, 10, 8, COLOR_BLACK);
+			LCD_DrawBitmap(LCD_X_SIZE-11, 1, charge_bitmap, 10, 8, COLOR_BLACK);
 		}
 	}
 
 	const char* bitmap_array[] = {unmuted_bitmap, bell_bitmap, backlight_bitmap, satellite_bitmap, death_bitmap};
-	bool bitmap_status[] = {!GFLAGS.is_muted, !GFLAGS.no_alarm, (bool)(DevNVRAM.GSETTING.LCD_BACKLIGHT), GFLAGS.is_satellites_found && GFLAGS.is_tracking_enabled, GFLAGS.do_alarm };
+	bool bitmap_status[] = {!GFLAGS.is_muted, !GFLAGS.no_alarm, (bool)(DevNVRAM.GSETTING.LCD_BACKLIGHT), GFLAGS.is_tracking_enabled, GFLAGS.do_alarm };
 	draw_statusbar(bitmap_array, bitmap_status, 5);
 
-	LCD_SetCursor(LCD_X/2 - 5*2.5 , 0);
+	LCD_SetCursor(LCD_X_SIZE/2 - 5*2.5 , 0);
 	if(current_hour < 10) LCD_JustDrawChar('0');
 	LCD_write(current_hour, false);
 	LCD_JustDrawChar(':');
-	if(GPS.GPGGA.UTC_Min < 10) LCD_JustDrawChar('0');
-	LCD_write(GPS.GPGGA.UTC_Min, false);
+	if(current_minutes < 10) LCD_JustDrawChar('0');
+	LCD_write(current_minutes, false);
 
 	if(GMODE.counter_mode == 0){
 		LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);
@@ -129,10 +155,10 @@ void draw_main(){
 
 		LCD_SetCharSize(2);
 		LCD_SetCursor(0, 8);
-		/*if(GWORK.rad_back > 1000) LCD_write((float)GWORK.rad_back/1000, true);
+		if(GWORK.rad_back > 1000) LCD_write((float)GWORK.rad_back/1000, true);
 		else if(GWORK.rad_back > 1000000) LCD_write((float)GWORK.rad_back/1000000, true);
-		else LCD_write(GWORK.rad_back, false);*/
-		LCD_write(GMEANING.current_high_voltage, false);
+		else LCD_write(GWORK.rad_back, false);
+		//LCD_write(GMEANING.current_high_voltage, false);
 
 		LCD_SetCharSize(0);
 		LCD_AddToCursor(0, 3);
@@ -155,16 +181,16 @@ void draw_main(){
 		LCD_DrawFastHLine(0,48,20,COLOR_BLACK);
 
 		LCD_SetCursor(0, 50);
-		/*if(GWORK.rad_dose > 1000) LCD_write((float)GWORK.rad_dose/1000, true);
+		if(GWORK.rad_dose > 1000) LCD_write((float)GWORK.rad_dose/1000, true);
 		else if(GWORK.rad_dose > 1000000) LCD_write((float)GWORK.rad_dose/1000000, true);
-		else LCD_write(GWORK.rad_dose, false);*/
-		LCD_write(GWORK.voltage_req, false);
+		else LCD_write(GWORK.rad_dose, false);
+		//LCD_write(GWORK.voltage_req, false);
 
+		LCD_SetCursor(0, 58);
 		if(GWORK.rad_dose > 1000) LCD_print(T_MR);
 		else if(GWORK.rad_dose > 1000000) LCD_print(T_R);
 		else LCD_print(T_UR);
-		LCD_SetCursor(0, 58);
-		LCD_print(S_DOSE);
+		//LCD_print(S_DOSE);
 
 		draw_graph();
 	}else if(GMODE.counter_mode == 1){
@@ -177,15 +203,15 @@ void draw_main(){
 		if(GFLAGS.stop_timer && GFLAGS.next_step) LCD_write(abs((int)GWORK.rad_max - (int)GWORK.rad_back), false);
 		else LCD_write(GWORK.rad_back, false);
 		LCD_SetCharSize(0);
-		LCD_SetCursor((LCD_X/2) - (getNumOfDigits(GWORK.time_min)+getNumOfDigits(GWORK.time_sec)+1)*3, 40);
+		LCD_SetCursor((LCD_X_SIZE/2) - (getNumOfDigits(GWORK.time_min)+getNumOfDigits(GWORK.time_sec)+1)*3, 40);
 		LCD_write(GWORK.time_min, false);
 		LCD_print(":");
 		LCD_write(GWORK.time_sec, false);
-		LCD_FillRect(0, 50, map(GWORK.timer_remain, GWORK.timer_time, 0, 0, LCD_X), 16, COLOR_BLACK);
+		LCD_FillRect(0, 50, map(GWORK.timer_remain, GWORK.timer_time, 0, 0, LCD_X_SIZE), 16, COLOR_BLACK);
 		LCD_SetTextColor(COLOR_WHITE, COLOR_BLACK);
-		LCD_SetCursor((LCD_X/2) - strlen(S_PRESSSET)*2.5, 54);
+		LCD_SetCursor((LCD_X_SIZE/2) - strlen(S_PRESSSET)*2.5, 54);
 		if(GFLAGS.stop_timer && !GFLAGS.next_step) LCD_print(S_PRESSSET);
-		LCD_SetCursor((LCD_X/2) - strlen(S_SUCCESS)*2.5, 54);
+		LCD_SetCursor((LCD_X_SIZE/2) - strlen(S_SUCCESS)*2.5, 54);
 		if(GFLAGS.stop_timer && GFLAGS.next_step) LCD_print(S_SUCCESS);
 	}else if(GMODE.counter_mode == 2){
 		LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);
@@ -218,25 +244,27 @@ void draw_main(){
 	LCD_Update();
 }
 
-void draw_simple_menu_page(const char** punct_names, size_t punct_count){
-	for(size_t i = 0; i < punct_count; i++){
+/*****************************************************************************************************************/
+void draw_simple_menu_page(const char** punct_names, uint32_t punct_count){
+	for(uint32_t i = 0; i < punct_count; i++){
 		LCD_SetCursor(0, 10 + 9*i);
 		if (GUI.cursor==i) LCD_print(T_CURSOR);
 		LCD_print(punct_names[i]);
 	}
 }
 
-void draw_editable_menu_page(const char** punct_names, int16_t* punct_values, char* postfixes, size_t punct_count){
-	for(size_t i = 0; i < punct_count; i++){
+/*****************************************************************************************************************/
+void draw_editable_menu_page(const char** punct_names, int16_t* punct_values, char* postfixes, uint32_t punct_count){
+	for(uint32_t i = 0; i < punct_count; i++){
 		LCD_SetCursor(0, 10+9*i);
 		if (GUI.cursor==i) LCD_print(T_CURSOR);
 		LCD_print(punct_names[i]);
 		if(GUI.cursor==i && GFLAGS.is_editing_mode){
-			LCD_SetCursor(LCD_X - (getNumOfDigits(GUI.editable)+1)*6, 10+9*i);
+			LCD_SetCursor(LCD_X_SIZE - (getNumOfDigits(GUI.editable)+1)*6, 10+9*i);
 			LCD_SetTextColor(COLOR_WHITE, COLOR_BLACK);
 			LCD_write(GUI.editable, false);
 		}else{
-			LCD_SetCursor(LCD_X - (getNumOfDigits(punct_values[i])+1)*6, 10+9*i);
+			LCD_SetCursor(LCD_X_SIZE - (getNumOfDigits(punct_values[i])+1)*6, 10+9*i);
 			LCD_write(punct_values[i], false);
 		}
 		LCD_JustDrawChar(postfixes[i]);
@@ -244,45 +272,48 @@ void draw_editable_menu_page(const char** punct_names, int16_t* punct_values, ch
 	}
 }
 
-void draw_checkbox_menu_page(const char** punct_names, bool* punct_values, bool* skip_flags, size_t punct_count){
-	for(size_t i = 0; i < punct_count; i++){
+/*****************************************************************************************************************/
+void draw_checkbox_menu_page(const char** punct_names, bool* punct_values, bool* skip_flags, uint32_t punct_count){
+	for(uint32_t i = 0; i < punct_count; i++){
 		LCD_SetCursor(0, 10 + 9*i);
 		LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);
 		if (GUI.cursor==i) LCD_print(T_CURSOR);
 		LCD_print(punct_names[i]);
 		if(!skip_flags[i]){
 			const char* curflag = punct_values[i] ? S_YES : S_NO;
-			LCD_SetCursor(LCD_X - strlen(curflag)*6, 10 + 9*i);
+			LCD_SetCursor(LCD_X_SIZE - strlen(curflag)*6, 10 + 9*i);
 			LCD_print(curflag);
 		}
 		LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);
 	}
 }
 
+/*****************************************************************************************************************/
 void draw_graph(){
-	for(uint8_t i=0;i < LCD_X-1;i++){
-		uint8_t x_coord = map(i, 0, LCD_X-1, 21, LCD_X-1);
+	for(uint8_t i=0;i < LCD_X_SIZE-1;i++){
+		uint8_t x_coord = map(i, 0, LCD_X_SIZE-1, 21, LCD_X_SIZE-1);
 		uint8_t interpolated = (uint8_t)lerp(LCD_Y-1-GUI.mass[i], LCD_Y-1-GUI.mass[i+1], 0.5);
 		LCD_DrawLine(x_coord, LCD_Y - 1, x_coord, interpolated, COLOR_BLACK);
 	}
 }
 
+/*****************************************************************************************************************/
 void draw_menu(){
 #ifndef DEBUG
 	const char* current_page_name[PAGES] = {S_MENU, S_MODE, S_SETTINGS, S_RESET, S_ACTIVITY, S_SURE, S_GCOUNTER, S_ADVANCED, S_ABOUT};
 	LCD_SetCharSize(0);
 	const char *page_name = current_page_name[GUI.menu_page];
-	#if defined(RU)
-	    size_t header_size = strlen(page_name)/1.5;
+	#if defined(LANGUAGE_RU)
+	    uint32_t header_size = strlen(page_name)/1.5;
 	#else
-	    size_t header_size = strlen(page_name);
+	    uint32_t header_size = strlen(page_name);
 	#endif
 	LCD_Clear();
 	LCD_SetTextColor(COLOR_WHITE, COLOR_BLACK);
-	LCD_FillRect(0, 0, LCD_X, 8, COLOR_BLACK);
+	LCD_FillRect(0, 0, LCD_X_SIZE, 8, COLOR_BLACK);
 	LCD_SetCursor((17 - header_size)*6/2, 0);
 	LCD_print(page_name);
-	LCD_DrawFastHLine(0,8,LCD_X,COLOR_BLACK);
+	LCD_DrawFastHLine(0,8,LCD_X_SIZE,COLOR_BLACK);
 	LCD_SetCursor(0, 10);
 	LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);
 
@@ -290,8 +321,8 @@ void draw_menu(){
 
 	switch (GUI.menu_page){
 		case 0:{
-			const char* current_page_puncts[] = {S_MODE, S_SETTINGS, S_RESET, S_POFF, S_DFU, S_ABOUT};
-			draw_simple_menu_page(current_page_puncts, 6);
+			const char* current_page_puncts[] = {S_MODE, S_SETTINGS, S_RESET, S_POFF, S_ABOUT};
+			draw_simple_menu_page(current_page_puncts, 5);
 		}break;
 
 		case 1:{
@@ -312,9 +343,9 @@ void draw_menu(){
 		}break;
 		//Меню настройки режима активности
 		case 4:{
-			const char* current_page_puncts[3] = {S_TIME, S_MEANS, S_BEGIN};
-			const uint16_t current_page_values[3] = {GWORK.time_min, GMODE.means_times, GWORK.time_min};
-			const char current_page_postfixes[3] = {'m', 't', 'm'};
+			const char* current_page_puncts[] = {S_TIME, S_MEANS, S_BEGIN};
+			const uint16_t current_page_values[] = {GWORK.time_min, GMODE.means_times, GWORK.time_min};
+			const char current_page_postfixes[] = {'m', 't', 'm'};
 			draw_editable_menu_page(current_page_puncts, current_page_values, current_page_postfixes, 3);
 	        }break;
 	        //Меню сна
@@ -324,34 +355,34 @@ void draw_menu(){
 	        }break;
 	        //Кастомные настройки счётчика
 	        case 6:{
-	        	const char* current_page_puncts[4] = {S_GTIME, S_ERROR, S_VOLTAGE, S_GEIGER_MODE};
-	        	const int16_t current_page_values[4] = {DevNVRAM.GSETTING.GEIGER_TIME, DevNVRAM.GSETTING.GEIGER_ERROR, DevNVRAM.GSETTING.GEIGER_VOLTAGE, DevNVRAM.GSETTING.ACTIVE_COUNTERS};
-	        	const char current_page_postfixes[4] = {'s', '%', 'V', ' '};
+	        	const char* current_page_puncts[] = {S_GTIME, S_ERROR, S_VOLTAGE, S_GEIGER_MODE};
+	        	const int16_t current_page_values[] = {DevNVRAM.GSETTING.GEIGER_TIME, DevNVRAM.GSETTING.GEIGER_ERROR, DevNVRAM.GSETTING.GEIGER_VOLTAGE, DevNVRAM.GSETTING.ACTIVE_COUNTERS};
+	        	const char current_page_postfixes[] = {'s', '%', 'V', ' '};
 	        	draw_editable_menu_page(current_page_puncts, current_page_values, current_page_postfixes, 4);
 	        }break;
 	        //Advanced settings
 	        case 7:{
-	        	const char* current_page_puncts[5] = {S_CONTRAST, S_DOSE_SAVE, S_ALARM, S_UTC, S_TRACKING_PERIOD};
-	        	const uint16_t current_page_values[5] = {DevNVRAM.GSETTING.LCD_CONTRAST, DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL, DevNVRAM.GSETTING.ALARM_THRESHOLD, DevNVRAM.GSETTING.UTC, DevNVRAM.GSETTING.log_save_period};
-	        	const char current_page_postfixes[5] = {' ', ' ', ' ', 'h', 's'};
-	        	draw_editable_menu_page(current_page_puncts, current_page_values, current_page_postfixes, 5);
+	        	const char* current_page_puncts[] = {S_CONTRAST, S_DOSE_SAVE, S_ALARM, S_TRACKING_PERIOD};
+	        	const uint16_t current_page_values[] = {DevNVRAM.GSETTING.LCD_CONTRAST, DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL, DevNVRAM.GSETTING.ALARM_THRESHOLD, DevNVRAM.GSETTING.log_save_period};
+	        	const char current_page_postfixes[] = {' ', ' ', ' ', 's'};
+	        	draw_editable_menu_page(current_page_puncts, current_page_values, current_page_postfixes, 4);
 	        }break;
 	        case 8:{
 	        	uint8_t ext_mem = map((w25qxx.CapacityInKiloByte*1024) - DevNVRAM.GSETTING.w25qxx_address, 0, (w25qxx.CapacityInKiloByte*1024), 0, 100);
 	        	LCD_print("Ext mem free:");
-	        	LCD_SetCursor(LCD_X - (getNumOfDigits(ext_mem)+1)*5, 10);
+	        	LCD_SetCursor(LCD_X_SIZE - (getNumOfDigits(ext_mem)+1)*5, 10);
 	        	LCD_write(ext_mem, false);
 	        	LCD_JustDrawChar('%');
 	        	LCD_SetCursor(0, 20);
 	        	LCD_print("Device ram free:");
 	        	ext_mem = map(GetRamFree(), 0, 20*1024, 0, 100);
-	        	LCD_SetCursor(LCD_X - (getNumOfDigits(ext_mem)+1)*5, 20);
+	        	LCD_SetCursor(LCD_X_SIZE - (getNumOfDigits(ext_mem)+1)*5, 20);
 	        	LCD_write(ext_mem, false);
 	        	LCD_JustDrawChar('%');
 	        	LCD_SetCursor(0, 30);
 	        	LCD_print("Device rom free:");
 	        	ext_mem = map(GetRomFree(), 0, 64*1024, 0, 100);
-	        	LCD_SetCursor(LCD_X - (getNumOfDigits(ext_mem)+1)*5, 30);
+	        	LCD_SetCursor(LCD_X_SIZE - (getNumOfDigits(ext_mem)+1)*5, 30);
 	        	LCD_write(ext_mem, false);
 	        	LCD_JustDrawChar('%');
 	        	LCD_SetCursor(0, 40);
@@ -367,6 +398,7 @@ void draw_menu(){
 #endif
 }
 
+/*****************************************************************************************************************/
 void draw_bat_low(){
 
 }

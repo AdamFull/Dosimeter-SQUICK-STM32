@@ -8,42 +8,44 @@
 #ifndef INC_LANGUAGE_H_
 #define INC_LANGUAGE_H_
 
-#define PAGES 9
-#define EN
+#include "configuration.h"
 
-#if defined(RU)
+#if defined(LANGUAGE_RU)
 const char* S_MENU = "Meню";
 const char* S_MODE = "Peжим";
-const char* S_SETTINGS = "Hacтpoйkи";
+const char* S_SETTINGS = "Hacтpoйки";
+const char* S_ADVANCED = "Пpoдвинyыe";
 const char* S_RESET = "Cбpoc";
-const char* S_BACKGROUND = "Поиск";
-const char* S_SAMPLE = "Oбpaзeц";
-const char* S_PRESSSET = "Haжми ceт";
-const char* S_SUCCESS = "Гoтoвo";
-const char* S_ACTIVITY = "Akтивнocть";
-const char* S_TONE = "3вук:";
-const char* S_BACKLIGHT = "Пoдcвeтka:";
+const char* S_BACKGROUND = "Фoн";
+const char* S_SAMPLE = "oбpaзeц";
+const char* S_PRESSSET = "Haжми set";
+const char* S_SUCCESS = "Гoтoв";
+const char* S_ACTIVITY = "Aктивнocть";
+const char* S_TONE = "3вyк:";
+const char* S_BACKLIGHT = "Пoдcвeткa:";
 const char* S_CONTRAST = "Koнтpacт:";
-const char* S_DOSE_SAVE = "Coxp. дoз:";
-const char* S_YES = "Дa";
-const char* S_NO = "Heт";
+const char* S_DOSE_SAVE = "Coxp дoзы:";
 const char* S_DOSE = "Дoзa";
 const char* S_ALL = "Bce";
 const char* S_TIME = "Bpeмя:";
 const char* S_MEANS = "Измepeний:";
 const char* S_BEGIN = "Haчaть";
-const char* S_MODE_SEC = "Секунда";
+const char* S_MODE_SEC = "Ceкyндa";
 const char* S_ALARM = "Tpeвoгa:";
-const char* S_GCOUNTER = "Cчeтчиk";
+const char* S_GCOUNTER = "Дaтчик";
 const char* S_CUSTOM = "Cвoй";
-const char* S_VOLTAGE = "Haпpяжeн:";
-const char* S_GTIME = "Bpемя изм:";
-const char* S_ERROR = "Oшибka:";
-const char* S_POFF = "Coн";
-const char* S_SURE = "Увepeны?";
+const char* S_VOLTAGE = "Haпpяжeниe:";
+const char* S_GTIME = "Bpeмя измep:";
+const char* S_ERROR = "Oшибкa:";
+const char* S_POFF = "Энepгocбepeжeниe";
+const char* S_SURE = "Yвepeны?";
+const char* S_ABOUT = "O пpибope";
+const char* S_GEIGER_MODE = "Hoм. дaтчикa:";
+const char* S_GPS = "Лoгиpoвaниe:";
+const char* S_TRACKING_PERIOD = "Пepиoд лoгиp:";
 #endif
 
-#if defined(EN)
+#if defined(LANGUAGE_EN)
 const char* S_MENU = "Menu";
 const char* S_MODE = "Mode";
 const char* S_SETTINGS = "Settings";
@@ -58,8 +60,6 @@ const char* S_TONE = "Sound:";
 const char* S_BACKLIGHT = "Backlight:";
 const char* S_CONTRAST = "Contrast:";
 const char* S_DOSE_SAVE = "Dose save:";
-const char* S_YES = "Yes";
-const char* S_NO = "No";
 const char* S_DOSE = "Dose";
 const char* S_ALL = "All";
 const char* S_TIME = "Time:";
@@ -74,13 +74,14 @@ const char* S_GTIME = "Means time:";
 const char* S_ERROR = "Error:";
 const char* S_POFF = "Power management";
 const char* S_SURE = "Sure?";
-const char* S_DFU = "DFU mode";
 const char* S_ABOUT = "About";
 const char* S_GEIGER_MODE = "Counter mode:";
 const char* S_GPS = "Tracking:";
-const char* S_UTC = "UTC:";
 const char* S_TRACKING_PERIOD = "Track period:";
 #endif
+
+const char* S_YES = "+";
+const char* S_NO = "-";
 
 const char* T_URH = "uR/h";
 const char* T_MRH = "mR/h";

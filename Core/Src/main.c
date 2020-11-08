@@ -30,15 +30,13 @@
 #include <managers/meaning_manager.h>
 #include "managers/output_manager.h"
 #include "managers/data_manager.h"
-#include "libs/GyverButton_stm32.h"
-#include "libs/LCD_1202.h"
-#include "libs/GPS.h"
+#include "managers/input_manager.h"
 #include "libs/w25qxx.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-//typedef void (*pFunction)(void);
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -54,14 +52,13 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+
 char rx_buffer[32];
 unsigned long current_millis = 0;
 unsigned long gps_millis = 0;
 unsigned long screen_saver_millis = 0;
+unsigned long ticks_passed_millis = 0;
 bool screen_saver_state = false;
-
-GyverButton btn_set;
-GyverButton btn_reset;
 
 extern DINITSTATUS device_status;
 
@@ -72,14 +69,11 @@ extern geiger_mode GMODE;
 extern NVRAM DevNVRAM;
 extern geiger_ui GUI;
 
-//pFunction JumpToApplication;
-//uint32_t JumpAddress;
-
-LCD_CONFIG lcd_config_g;
-
 uint8_t strbuffer[64] = {0};
 
 extern uint8_t current_hour;
+extern uint8_t current_minutes;
+extern uint8_t current_seconds;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -90,12 +84,8 @@ static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_ADC2_Init(void);
-static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 static void SendMessage(char *message);
-void move_cursor(bool direction, bool editable, bool menu_mode);
-void cursor_select(bool direction, bool editable, bool menu_mode);
-void button_action();
 
 /* USER CODE END PFP */
 
@@ -111,294 +101,6 @@ void SendMessage(char *message){
 	CDC_Transmit_FS(message, strlen(message));
 }
 
-void bootToDFU(){
-	LL_GPIO_SetOutputPin(GPIOB, LL_GPIO_PIN_7);
-	LL_mDelay(10);
-	NVIC_SystemReset();
-}
-
-//Cursor movement
-void move_cursor(bool direction, bool editable, bool menu_mode){
-#ifndef DEBUG
-	//Cursor in editing
-	if(editable){
-		if(direction){
-			if(GUI.menu_page == 4){
-				switch (GUI.cursor){
-					case 0:{ if(GUI.editable < 30) GUI.editable++; }break;
-					case 1:{ if(GUI.editable < 1) GUI.editable++; }break;
-				}
-			}else if(GUI.menu_page == 6){
-				switch (GUI.cursor){
-					case 0:{ if(GUI.editable < 250) GUI.editable++; } break;
-					case 1:{ if(GUI.editable < 40) GUI.editable+=5; } break;
-					case 2:{ if(GUI.editable < 500) GUI.editable+=10; } break;
-					case 3:{ if(GUI.editable < 3) GUI.editable++; } break;
-				}
-			}else if(GUI.menu_page == 7){
-				switch (GUI.cursor){
-					case 0:{ if(GUI.editable < 31) GUI.editable++; } break;
-					case 1:{ if(GUI.editable < 500) GUI.editable+=5; } break;
-					case 2:{ if(GUI.editable < 500) GUI.editable+=10; } break;
-					case 3:{ if(GUI.editable < 12) GUI.editable+=1; } break;
-					case 4:{ if(GUI.editable < 300) GUI.editable+=30; } break;
-				}
-			}
-		}else{
-			if(GUI.menu_page == 4){
-				switch (GUI.cursor){
-					case 0:{ if(GUI.editable > 1) GUI.editable--; }break;
-					case 1:{ if(GUI.editable > 0) GUI.editable--; }break;
-				}
-			}else if(GUI.menu_page == 6){
-				switch (GUI.cursor){
-					case 0:{ if(GUI.editable > 5) GUI.editable--; } break;
-					case 1:{ if(GUI.editable > 5) GUI.editable-=5; } break;
-					case 2:{ if(GUI.editable > 100) GUI.editable-=10; } break;
-					case 3:{ if(GUI.editable > 0) GUI.editable--; } break;
-				}
-			}else if(GUI.menu_page == 7){
-				switch (GUI.cursor){
-					case 0:{ if(GUI.editable > 5) GUI.editable--; } break;
-					case 1:{ if(GUI.editable > 5) GUI.editable-=5; } break;
-					case 2:{ if(GUI.editable > 30) GUI.editable-=10; } break;
-					case 3:{ if(GUI.editable > -12) GUI.editable-=1; } break;
-					case 4:{ if(GUI.editable > 30) GUI.editable-=30; } break;
-				}
-			}
-		}
-		//Cursor in menu
-	}else{
-		if(direction){
-			if(menu_mode && GUI.menu_page != 8){
-				switch (GUI.menu_page){
-					case 0:{ if(GUI.cursor < 5) GUI.cursor++; } break;
-					case 1:{ if(GUI.cursor < 2) GUI.cursor++; } break;
-					case 2:{ if(GUI.cursor < 4) GUI.cursor++; } break;
-					case 3:{ if(GUI.cursor < 2) GUI.cursor++; } break;
-					case 4:{ if(GUI.cursor < 2) GUI.cursor++; } break;
-					case 5:{ if(GUI.cursor < 1) GUI.cursor++; } break;
-					case 6:{ if(GUI.cursor < 3) GUI.cursor++; } break;
-					case 7:{ if(GUI.cursor < 4) GUI.cursor++; } break;
-				}
-			}
-
-		}else{
-			if(menu_mode && GUI.cursor > 0 && GUI.menu_page != 8) { GUI.cursor--; }
-		}
-	}
-	GFLAGS.is_detected = true;
-#endif
-}
-
-
-void cursor_select(bool direction, bool editable, bool menu_mode){
-#ifndef DEBUG
-	if(direction){
-		if(editable){
-			GFLAGS.is_detected = true;
-			if(GUI.menu_page == 2){
-				switch (GUI.cursor){
-				case 1:{ Set_setting(&DevNVRAM.GSETTING.BUZZER_TONE, (uint32_t)GUI.editable); }break;
-				case 2:{ Set_setting(&DevNVRAM.GSETTING.LCD_BACKLIGHT, (uint32_t)GUI.editable); }break;
-				}
-			}else if(GUI.menu_page == 4){
-				switch (GUI.cursor){
-					case 0:{ GWORK.time_min = GUI.editable; }break;
-					case 1:{ GMODE.means_times = GUI.editable; }break;
-				}
-			}else if(GUI.menu_page == 6){
-				switch (GUI.cursor){
-					case 0:{ Set_setting(&DevNVRAM.GSETTING.GEIGER_TIME, (uint32_t)GUI.editable); }break;
-					case 1:{ Set_setting(&DevNVRAM.GSETTING.GEIGER_ERROR, (uint32_t)GUI.editable); }break;
-					case 2:{ Set_setting(&DevNVRAM.GSETTING.GEIGER_VOLTAGE, (uint32_t)GUI.editable); }break;
-					case 3:{ Set_setting(&DevNVRAM.GSETTING.ACTIVE_COUNTERS, (uint32_t)GUI.editable); }break;
-				}
-			}else if(GUI.menu_page == 7){
-				switch (GUI.cursor){
-					case 0:{ Set_setting(&DevNVRAM.GSETTING.LCD_CONTRAST, (uint32_t)GUI.editable); }break;
-					case 1:{ Set_setting(&DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL, (uint32_t)GUI.editable); }break;
-					case 2:{ Set_setting(&DevNVRAM.GSETTING.ALARM_THRESHOLD, (uint32_t)GUI.editable); }break;
-					case 3:{ Set_setting(&DevNVRAM.GSETTING.UTC, (uint32_t)GUI.editable); }break;
-					case 4:{ Set_setting(&DevNVRAM.GSETTING.log_save_period, (uint32_t)GUI.editable); }break;
-				}
-			}
-			GFLAGS.is_editing_mode = false;
-			return;
-		}else{
-			GFLAGS.is_detected = true;
-			switch (GUI.menu_page){
-				case 0:{
-					switch (GUI.cursor){
-						case 0:{ GUI.menu_page = 1; }break;
-						case 1:{ GUI.menu_page = 2; }break;
-						case 2:{ GUI.menu_page = 3; }break;
-						case 3:{ GUI.menu_page = 5; }break;
-						case 4:{ bootToDFU(); }break;
-						case 5:{ GUI.menu_page = 8; }break;
-					}
-					GUI.cursor = 0;
-				}break;
-				case 1:{
-					switch (GUI.cursor){
-						case 0:{ GMODE.counter_mode = 0; GUI.page = 1; }break;
-						case 1:{ GUI.menu_page = 4; }break;
-						case 2:{ GMODE.counter_mode = 2; GUI.page = 1; GWORK.rad_max = 0;
-						for(int i = 0; i < LCD_X; i++) GUI.mass[i] = 0;
-						}break;
-					}
-					GUI.cursor = 0;
-				}break;
-				case 2:{
-					switch (GUI.cursor){
-						case 0:{ GUI.menu_page = 6; }break;
-						case 1:{ GUI.menu_page = 7; }break;
-						case 2:{ GFLAGS.is_muted = !GFLAGS.is_muted; }break;
-						case 3:{ DevNVRAM.GSETTING.LCD_BACKLIGHT = !DevNVRAM.GSETTING.LCD_BACKLIGHT; }break;
-						case 4:{ GFLAGS.is_tracking_enabled = !GFLAGS.is_tracking_enabled; }break;
-					}
-					return;
-				}break;
-				case 3:{
-					switch (GUI.cursor){								//Стереть данные
-						case 0:{ Reset_settings(); GUI.menu_page = 0; }break;
-						case 1:{ Reset_dose(); GUI.menu_page = 0; }break;
-						case 2:{ Reset_dose(); Reset_settings(); GUI.menu_page = 0; }break;
-					}
-					GUI.cursor = 0;
-				}break;
-				case 4:{
-					switch (GUI.cursor){
-						case 0:{ GUI.editable = GWORK.time_min; }break;
-						case 1:{ GUI.editable = GMODE.means_times; }break;
-						case 2:{
-							Reset_activity_test();
-							GWORK.time_min_old = GWORK.time_min;
-							GWORK.timer_time = GWORK.time_min * 60;
-							GWORK.timer_remain = GWORK.timer_time;
-						}break;
-					}
-					if(GUI.cursor != 2) GFLAGS.is_editing_mode = true;
-
-				}break;
-				case 5:{
-					switch (GUI.cursor){								//Вообще это диалог выбора, но пока что это не он
-						case 0:{
-										//sleep();
-						}break;
-						case 1:{ GUI.menu_page = 0; }break;
-					}
-					GUI.cursor = 0;
-					}break;
-					case 6:{
-						switch (GUI.cursor){
-							case 0:{ GUI.editable = DevNVRAM.GSETTING.GEIGER_TIME; }break;
-							case 1:{ GUI.editable = DevNVRAM.GSETTING.GEIGER_ERROR; }break;
-							case 2:{ GUI.editable = DevNVRAM.GSETTING.GEIGER_VOLTAGE; }break;
-							case 3:{ GUI.editable = DevNVRAM.GSETTING.ACTIVE_COUNTERS; }break;
-						}
-						GFLAGS.is_editing_mode = true;
-					}break;
-					case 7:{
-						switch(GUI.cursor){
-							case 0:{ GUI.editable = DevNVRAM.GSETTING.LCD_CONTRAST; }break;
-							case 1:{ GUI.editable = DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL; }break;
-							case 2:{ GUI.editable = DevNVRAM.GSETTING.ALARM_THRESHOLD; }break;
-							case 3:{ GUI.editable = DevNVRAM.GSETTING.UTC; }break;
-							case 4:{ GUI.editable = DevNVRAM.GSETTING.log_save_period; }break;
-						}
-						GFLAGS.is_editing_mode = true;
-					}
-				}
-			}
-		}
-#endif
-}
-
-void button_action(){
-#ifndef DEBUG
-	tick(&btn_reset);
-	tick(&btn_set);
-
-
-	bool btn_reset_isHolded = isHolded(&btn_reset);
-	bool btn_set_isHolded = isHolded(&btn_set);
-
-	bool menu_mode = GUI.page == 2;
-
-	if(isHold(&btn_reset) && isHold(&btn_set)){
-		battery_safe_update();
-		if(!menu_mode){
-			GUI.page = 2;
-			GUI.menu_page = 0;
-			GFLAGS.is_editing_mode = false;
-		}else{
-			GFLAGS.is_editing_mode = false;
-			GUI.page = 1;
-		}
-		update_request();
-		resetStates(&btn_reset);
-		resetStates(&btn_set);
-	}else if(isHold(&btn_set) && !menu_mode){
-		//if(!menu_mode && !isPress(btn_reset)) battery_request(true);
-	}else if(btn_reset_isHolded){											//Удержание кнопки ресет
-		battery_safe_update();
-		if(!menu_mode && !isPress(&btn_set)) GFLAGS.no_alarm = !GFLAGS.no_alarm;
-		if(menu_mode && !GFLAGS.is_editing_mode){										//Если находимся в меню
-			GFLAGS.is_detected = true;
-			if(GUI.menu_page == 0) {GUI.page = 1; GFLAGS.do_alarm = false;}
-			else if(GUI.menu_page == 2) { Accept_settings(); GUI.menu_page = 0; }
-			else if(GUI.menu_page == 6) GUI.menu_page = 2;
-			else if(GUI.menu_page == 7) GUI.menu_page = 2;
-			else GUI.menu_page = 0;
-			GUI.cursor = 0;
-		}
-		if(GFLAGS.is_editing_mode){
-			GFLAGS.is_detected = true;
-			GFLAGS.is_editing_mode = false;
-		}
-		if(!menu_mode && GMODE.counter_mode == 1){
-			Reset_activity_test();
-			GWORK.timer_remain = GWORK.timer_time;
-			GWORK.time_min = GWORK.time_min_old;
-		}
-		update_request();
-	}else if(isClick(&btn_reset) && !btn_reset_isHolded){					//Клик кнопки ресет
-		battery_safe_update();
-		if(!menu_mode && !GFLAGS.do_alarm) GFLAGS.is_muted = !GFLAGS.is_muted;
-		if(!menu_mode && GFLAGS.do_alarm) GFLAGS.no_alarm = !GFLAGS.no_alarm;
-		move_cursor(false, GFLAGS.is_editing_mode, menu_mode);
-		update_request();
-	}else if(btn_set_isHolded){												//Удержание кнопки сет
-		battery_safe_update();
-		cursor_select(true, GFLAGS.is_editing_mode, menu_mode);
-		update_request();
-	}else if(isClick(&btn_set) && !btn_set_isHolded){					//Клик кнопки сет
-		battery_safe_update();
-		if(!menu_mode && GMODE.counter_mode == 1 && !GFLAGS.next_step && GFLAGS.stop_timer){
-			GWORK.rad_max = GWORK.rad_back;
-			GWORK.rad_back = 0;
-			GFLAGS.next_step = true;
-			GFLAGS.stop_timer = false;
-			GFLAGS.do_alarm = false;
-			GWORK.time_min = GWORK.time_min_old;
-			GWORK.timer_remain = GWORK.timer_time;
-			GWORK.time_sec = 0;
-		}
-		if(!menu_mode && GMODE.counter_mode == 1 && GFLAGS.do_alarm && GFLAGS.next_step && GFLAGS.stop_timer){
-			GFLAGS.do_alarm = false;
-		}
-
-		if(!menu_mode && GMODE.counter_mode == 0){
-			GFLAGS.is_mean_mode = !GFLAGS.is_mean_mode;
-		}
-
-		move_cursor(true, GFLAGS.is_editing_mode, menu_mode);
-		update_request();
-	}
-#endif
-}
-
 /* USER CODE END 0 */
 
 /**
@@ -408,7 +110,8 @@ void button_action(){
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+  //SCB->VTOR = 0x08005004;
+  //__enable_irq();
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -434,7 +137,6 @@ int main(void)
   MX_TIM2_Init();
   MX_ADC1_Init();
   MX_ADC2_Init();
-  MX_USART1_UART_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
@@ -444,32 +146,9 @@ int main(void)
    Initialize_data();
 
    adc_init();
+   init_inputs();
 
-   GPS_Init();
-
-  lcd_config_g.MOSIPORT = GPIOA;
-  lcd_config_g.MOSIPIN = LL_GPIO_PIN_7;
-  lcd_config_g.SCKPORT = GPIOA;
-  lcd_config_g.SCKPIN = LL_GPIO_PIN_5;
-  lcd_config_g.CSPORT = GPIOA;
-  lcd_config_g.CSPIN = LL_GPIO_PIN_4;
-  lcd_config_g.RESPORT = GPIOB;
-  lcd_config_g.RESPIN = LL_GPIO_PIN_0;
-
-  LCD_Init(lcd_config_g);
-  LCD_SetContrast(10);
-  LCD_Flip();
-
-  gbuttonInit(&btn_set, GPIOB, GPIO_IDR_IDR5, HIGH_PULL, NORM_OPEN);
-  gbuttonInit(&btn_reset, GPIOB, GPIO_IDR_IDR4, HIGH_PULL, NORM_OPEN);
-
-    //реализовать режимы энергосбережения в зависимости от уровня заряда и установленного в настройках
-    //От этого будет зависеть частота процессора и яркость подсветки если она включена
-
-    setClickTimeout(&btn_reset, 100);
-    setClickTimeout(&btn_set, 100);
-    setTimeout(&btn_reset, 500);
-    setTimeout(&btn_set, 500);
+  init_outputs();
 
   GMODE.counter_mode = 0;
 
@@ -487,7 +166,18 @@ int main(void)
   while (1)
   {
 #ifndef DEBUG
-	current_hour = (GPS.GPGGA.UTC_Hour + DevNVRAM.GSETTING.UTC)%24;
+	if(GetTick() - ticks_passed_millis > 1000){
+		ticks_passed_millis = GetTick();
+		if(current_hour<99) {
+			if(++current_seconds>59){
+				if(++current_minutes>59){
+					if(++current_hour>99) current_hour=99; //часы
+						current_minutes=0;
+				}
+				current_seconds=0;
+			}
+		}
+	}
 
 	//Timer for idle screen disable
 
@@ -529,18 +219,13 @@ int main(void)
 				  NVIC_SystemReset();
 			  }else if(strcmp(rx_buffer, "monitor\n") == 0){										//If received monitor, let's enable work log transfer
 				  GFLAGS.is_monitor_enabled = !GFLAGS.is_monitor_enabled;
-			  }else if(strcmp(rx_buffer, "update\n") == 0){											//Here we starting backup and go to firmware update mode
-				  SendMessage("Rebooting to dfu.\n");
-				  bootToDFU();
 			  }else if(strcmp(rx_buffer, "rdcfg\n") == 0){
-
+				  //Read settings
 			  }
 			  memset(rx_buffer, 0, sizeof(rx_buffer));
 		  }
 		  GFLAGS.log_transfer = false;
 		button_action();
-		GPS_Process();
-		GFLAGS.is_satellites_found = (GPS.GPGGA.Latitude > 0) && (GPS.GPGGA.Longitude > 0);								//Flag for check sat status
 
 		/******************************************************************************************************************************/
 		//Timer for update voltage values
@@ -577,12 +262,10 @@ int main(void)
 		if(GetTick() - gps_millis > DevNVRAM.GSETTING.log_save_period * 1000){
 			gps_millis = GetTick();
 
-			if(GFLAGS.is_satellites_found && GPS.end_convertation == 1 && GFLAGS.is_tracking_enabled){
+			if(GFLAGS.is_tracking_enabled){
 				uint8_t buffer[64];
 				memset(buffer, 0, sizeof(buffer));
-				sprintf(buffer, "%u,%u,%u,%u,%u,%lf,%lf\n", GWORK.rad_back, GWORK.rad_dose, current_hour, GPS.GPGGA.UTC_Min, GPS.GPGGA.UTC_Sec, GPS.GPGGA.LatitudeDecimal, GPS.GPGGA.LongitudeDecimal);
-				//if(GFLAGS.is_monitor_enabled) CDC_Transmit_FS(buffer, sizeof(buffer));
-				GPS.end_convertation = 0;
+				sprintf(buffer, "%u,%u,%u,%u,%u\n", GWORK.rad_back, GWORK.rad_dose, current_hour, current_minutes, current_seconds);
 				if(!Write_string_w25qxx(buffer)){
 					//Not enought memory, can't write
 					//Do something
@@ -594,7 +277,7 @@ int main(void)
 		if((GWORK.rad_back > DevNVRAM.GSETTING.ALARM_THRESHOLD) && !GFLAGS.no_alarm && (GMODE.counter_mode == 0)) { GFLAGS.do_alarm = true; }
 		else { if(GMODE.counter_mode == 0) GFLAGS.do_alarm = false; }
 
-		if(!GFLAGS.do_alarm && !screen_saver_state){ if((bool)DevNVRAM.GSETTING.LCD_BACKLIGHT){ pwm_backlight(255); } else {pwm_backlight(0);} }//Disable or enable backlight after alarm
+		if(!GFLAGS.do_alarm && !screen_saver_state){ if((bool)DevNVRAM.GSETTING.LCD_BACKLIGHT){ pwm_backlight(BACKLIGHT_INTENSITY); } else {pwm_backlight(0);} }//Disable or enable backlight after alarm
 
 		//Alarm algorithm
 		if(!GFLAGS.no_alarm) {
@@ -922,7 +605,7 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 1 */
 
   /* USER CODE END TIM2_Init 1 */
-  TIM_InitStruct.Prescaler = 35;
+  TIM_InitStruct.Prescaler = 16;
   TIM_InitStruct.CounterMode = LL_TIM_COUNTERMODE_UP;
   TIM_InitStruct.Autoreload = 255;
   TIM_InitStruct.ClockDivision = LL_TIM_CLOCKDIVISION_DIV1;
@@ -972,63 +655,6 @@ static void MX_TIM2_Init(void)
   LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   LL_GPIO_AF_EnableRemap_TIM2();
-
-}
-
-/**
-  * @brief USART1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART1_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART1_Init 0 */
-
-  /* USER CODE END USART1_Init 0 */
-
-  LL_USART_InitTypeDef USART_InitStruct = {0};
-
-  LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-  /* Peripheral clock enable */
-  LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_USART1);
-
-  LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_GPIOA);
-  /**USART1 GPIO Configuration
-  PA9   ------> USART1_TX
-  PA10   ------> USART1_RX
-  */
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_9;
-  GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
-  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
-  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-  LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_10;
-  GPIO_InitStruct.Mode = LL_GPIO_MODE_FLOATING;
-  LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /* USART1 interrupt Init */
-  NVIC_SetPriority(USART1_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
-  NVIC_EnableIRQ(USART1_IRQn);
-
-  /* USER CODE BEGIN USART1_Init 1 */
-
-  /* USER CODE END USART1_Init 1 */
-  USART_InitStruct.BaudRate = 9600;
-  USART_InitStruct.DataWidth = LL_USART_DATAWIDTH_8B;
-  USART_InitStruct.StopBits = LL_USART_STOPBITS_1;
-  USART_InitStruct.Parity = LL_USART_PARITY_NONE;
-  USART_InitStruct.TransferDirection = LL_USART_DIRECTION_TX_RX;
-  USART_InitStruct.HardwareFlowControl = LL_USART_HWCONTROL_NONE;
-  USART_InitStruct.OverSampling = LL_USART_OVERSAMPLING_16;
-  LL_USART_Init(USART1, &USART_InitStruct);
-  LL_USART_ConfigAsyncMode(USART1);
-  LL_USART_Enable(USART1);
-  /* USER CODE BEGIN USART1_Init 2 */
-
-  /* USER CODE END USART1_Init 2 */
 
 }
 
@@ -1089,6 +715,7 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
   GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_DOWN;
   LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /**/
