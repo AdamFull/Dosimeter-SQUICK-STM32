@@ -141,12 +141,14 @@ void draw_main(){
 	bool bitmap_status[] = {!GFLAGS.is_muted, !GFLAGS.no_alarm, (bool)(DevNVRAM.GSETTING.LCD_BACKLIGHT), GFLAGS.is_tracking_enabled, GFLAGS.do_alarm };
 	draw_statusbar(bitmap_array, bitmap_status, 5);
 
-	LCD_SetCursor(LCD_X_SIZE/2 - 5*2.5 , 0);
-	if(current_hour < 10) LCD_JustDrawChar('0');
-	LCD_write(current_hour, false);
-	LCD_JustDrawChar(':');
-	if(current_minutes < 10) LCD_JustDrawChar('0');
-	LCD_write(current_minutes, false);
+	if(GMODE.counter_mode != 1){
+		LCD_SetCursor(LCD_X_SIZE/2 - 5*2.5 , 0);
+		if(current_hour < 10) LCD_JustDrawChar('0');
+		LCD_write(current_hour, false);
+		LCD_JustDrawChar(':');
+		if(current_minutes < 10) LCD_JustDrawChar('0');
+		LCD_write(current_minutes, false);
+	}
 
 	if(GMODE.counter_mode == 0){
 		LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);

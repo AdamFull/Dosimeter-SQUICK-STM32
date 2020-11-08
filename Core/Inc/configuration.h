@@ -33,8 +33,8 @@
 #define LCD_X_SIZE 96
 #define LCD_Y_SIZE 68
 
-#define LANGUAGE_RU
-//#define LANGUAGE_EN
+//#define LANGUAGE_RU
+#define LANGUAGE_EN
 
 #define PAGES 9
 
@@ -43,11 +43,13 @@
 
 /***********************CONSTANTS***********************/
 //High voltage convertation coefficient
-#define HV_COEF 6.5f
+#define HV_MULTIPLIER 6
 
 #define BACKLIGHT_MAX 255
 #define BACKLIGHT_NORMAL 200
 #define BACKLIGHT_MIN 150
+
+#define BUZZER_NORMAL 200
 
 #define BACKLIGHT_INTENSITY BACKLIGHT_NORMAL
 

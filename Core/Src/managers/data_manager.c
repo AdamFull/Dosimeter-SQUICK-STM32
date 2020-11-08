@@ -32,9 +32,7 @@ unsigned long my_ticker = 0;
 
 /*****************************************************************************************************************/
 void voltage_required(){
-	//float coeff = 5.85f + (1.f - ((float)GMEANING.current_battery_voltage/(float)BAT_ADC_MAX))*1.3f;
-	//GWORK.voltage_req =  ((float)DevNVRAM.GSETTING.GEIGER_VOLTAGE*(float)coeff);
-	GWORK.voltage_req = DevNVRAM.GSETTING.GEIGER_VOLTAGE*6;
+	GWORK.voltage_req = DevNVRAM.GSETTING.GEIGER_VOLTAGE*HV_MULTIPLIER;
 }
 
 /*****************************************************************************************************************/
