@@ -10,6 +10,7 @@
 #include "string.h"
 #include "managers/output_manager.h"
 #include "managers/data_manager.h"
+#include "stm32f1xx_ll_usart.h"
 
 #include "language.h"
 #include "libs/GFX_font.h"
@@ -26,6 +27,7 @@ extern geiger_work GWORK;
 extern NVRAM DevNVRAM;
 extern geiger_flags GFLAGS;
 
+extern uint8_t submode_cursor;
 extern uint8_t current_hour;
 extern uint8_t current_minutes;
 
@@ -53,6 +55,19 @@ void init_outputs(){
 	LCD_Init(lcd_config_g);
 	LCD_SetContrast(10);
 	LCD_Flip();
+}
+
+/*****************************************************************************************************************/
+void send_report(){
+#ifdef BLUETOOTH_SUPPORT
+	char buffer[32] = {0};
+	sprintf(buffer, "%u,%u,%u\n", GWORK.rad_back, GWORK.rad_max, GWORK.rad_dose);
+	for(uint32_t i = 0; i < strlen(buffer); i++){
+		*(volatile uint8_t *)&USART1->DR = (uint8_t)buffer[i];
+	}
+#elif defined(BLE_SUPPORT)
+
+#endif
 }
 
 /*****************************************************************************************************************/
@@ -142,6 +157,14 @@ void draw_main(){
 	draw_statusbar(bitmap_array, bitmap_status, 5);
 
 	if(GMODE.counter_mode == 0){
+		LCD_SetCursor(0, 0);
+		switch(submode_cursor){
+		case 0: LCD_print("BKG"); break;
+		case 1: LCD_print("PCM"); break;
+		case 2: LCD_print("MN"); break;
+		case 3: LCD_print("CPS"); break;
+		}
+
 		LCD_SetCursor(LCD_X_SIZE/2 - 5*2.5 , 0);
 		if(current_hour < 10) LCD_JustDrawChar('0');
 		LCD_write(current_hour, false);
@@ -155,23 +178,23 @@ void draw_main(){
 
 		LCD_SetCharSize(2);
 		LCD_SetCursor(0, 8);
-		if(!GFLAGS.particle_mode){
+		if(!GFLAGS.is_particle_mode && !GFLAGS.is_particle_per_sec_mode){
 			if(GFLAGS.is_mean_mode){
 				if(GMEANING.mean > 1000) LCD_write(GMEANING.mean/1000, true);
 				else if(GMEANING.mean > 1000000) LCD_write(GMEANING.mean/1000000, true);
 				else LCD_write(GMEANING.mean, false);
+				LCD_SetCharSize(0);
 			}else{
 				if(GWORK.rad_back > 1000) LCD_write((float)GWORK.rad_back/1000, true);
 				else if(GWORK.rad_back > 1000000) LCD_write((float)GWORK.rad_back/1000000, true);
 				else LCD_write(GWORK.rad_back, false);
+
+				LCD_SetCharSize(0);
+				LCD_AddToCursor(0, 3);
+				LCD_JustDrawChar(0x60);
+				LCD_write(deviation, false);
+				LCD_print("%");
 			}
-
-
-			LCD_SetCharSize(0);
-			LCD_AddToCursor(0, 3);
-			LCD_JustDrawChar(0x60);
-			LCD_write(deviation, false);
-			LCD_print("%");
 
 			LCD_SetCursor(0, 23);
 			if(GWORK.rad_back > 1000) LCD_print(T_MRH);
@@ -181,11 +204,9 @@ void draw_main(){
 			LCD_write(GWORK.rad_back, false);
 			LCD_SetCharSize(0);
 			LCD_SetCursor(0, 23);
-			LCD_print(T_PCCM2);
-
+			if(GFLAGS.is_particle_per_sec_mode) LCD_print(T_CPS);
+			else LCD_print(T_PCCM2);
 		}
-
-		//LCD_write(GMEANING.current_high_voltage, false);
 
 		LCD_SetCharSize(0);
 		LCD_SetCursor(0, 33);
@@ -196,17 +217,22 @@ void draw_main(){
 		LCD_DrawFastHLine(0,31,20,COLOR_BLACK);
 		LCD_DrawFastHLine(0,48,20,COLOR_BLACK);
 
-		LCD_SetCursor(0, 50);
-		if(GWORK.rad_dose > 1000) LCD_write((float)GWORK.rad_dose/1000, true);
-		else if(GWORK.rad_dose > 1000000) LCD_write((float)GWORK.rad_dose/1000000, true);
-		else LCD_write(GWORK.rad_dose, false);
-		//LCD_write(GWORK.voltage_req, false);
+		if(!GFLAGS.is_particle_per_sec_mode){
+			LCD_SetCursor(0, 50);
+			if(GWORK.rad_dose > 1000) LCD_write((float)GWORK.rad_dose/1000, true);
+			else if(GWORK.rad_dose > 1000000) LCD_write((float)GWORK.rad_dose/1000000, true);
+			else LCD_write(GWORK.rad_dose, false);
 
-		LCD_SetCursor(0, 58);
-		if(GWORK.rad_dose > 1000) LCD_print(T_MR);
-		else if(GWORK.rad_dose > 1000000) LCD_print(T_R);
-		else LCD_print(T_UR);
-		//LCD_print(S_DOSE);
+			LCD_SetCursor(0, 58);
+			if(GWORK.rad_dose > 1000) LCD_print(T_MR);
+			else if(GWORK.rad_dose > 1000000) LCD_print(T_R);
+			else LCD_print(T_UR);
+		}else{
+			LCD_SetCursor(0, 50);
+			LCD_write(GWORK.rad_back_old, false);
+			LCD_SetCursor(0, 58);
+			LCD_print(T_OLD);
+		}
 
 		draw_graph();
 	}else if(GMODE.counter_mode == 1){
@@ -229,33 +255,6 @@ void draw_main(){
 		if(GFLAGS.stop_timer && !GFLAGS.next_step) LCD_print(S_PRESSSET);
 		LCD_SetCursor((LCD_X_SIZE/2) - strlen(S_SUCCESS)*2.5, 54);
 		if(GFLAGS.stop_timer && GFLAGS.next_step) LCD_print(S_SUCCESS);
-	}else if(GMODE.counter_mode == 2){
-		LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);
-		LCD_SetCursor(0, 0);
-		LCD_print(S_MODE_SEC);
-		LCD_SetTextColor(COLOR_BLACK, COLOR_WHITE);
-		LCD_SetCharSize(2);
-		LCD_SetCursor(0, 9);
-		LCD_write(GWORK.rad_buff[0], false);
-
-		LCD_SetCharSize(0);
-		LCD_SetCursor(0, 23);
-		LCD_print(T_CPS);
-
-		LCD_SetCursor(0, 33);
-		LCD_write(GWORK.sum_old, false);
-		LCD_SetCursor(0, 41);
-		LCD_print(T_OLD);
-
-		LCD_SetCursor(0, 51);
-		LCD_write(GWORK.rad_max, false);
-		LCD_SetCursor(0, 59);
-		LCD_print(T_MAX);
-
-		LCD_DrawFastHLine(0,31,20,COLOR_BLACK);
-		LCD_DrawFastHLine(0,49,20,COLOR_BLACK);
-
-		draw_graph();
 	}
 	LCD_Update();
 }
@@ -342,8 +341,8 @@ void draw_menu(){
 		}break;
 
 		case 1:{
-			const char* current_page_puncts[] = {S_BACKGROUND, S_ACTIVITY, S_MODE_SEC};
-			draw_simple_menu_page(current_page_puncts, 3);
+			const char* current_page_puncts[] = {S_BACKGROUND, S_ACTIVITY};
+			draw_simple_menu_page(current_page_puncts, 2);
 		}break;
 		//Меню настроек
 		case 2:{
@@ -354,8 +353,8 @@ void draw_menu(){
 		}break;
 		//Меню выбора режима
 		case 3:{
-			const char* current_page_puncts[] = {S_SETTINGS, S_DOSE, S_ALL};
-			draw_simple_menu_page(current_page_puncts, 3);
+			const char* current_page_puncts[] = {S_SETTINGS, S_DOSE, S_FLASH, S_ALL};
+			draw_simple_menu_page(current_page_puncts, 4);
 		}break;
 		//Меню настройки режима активности
 		case 4:{
@@ -404,7 +403,8 @@ void draw_menu(){
 	        	LCD_SetCursor(0, 40);
 	        	LCD_print("MPU: STM32F103");
 	        	LCD_SetCursor(0, 50);
-	        	LCD_print("GUI API: v0.1b");
+	        	LCD_print("Session:");
+	        	LCD_write(DevNVRAM.GSETTING.session_number, false);
 	        	LCD_SetCursor(0, 60);
 	        	LCD_print("Author: AdamFull");
 	        	LCD_SetCursor(0, 70);

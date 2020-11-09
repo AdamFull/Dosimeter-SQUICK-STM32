@@ -8,7 +8,7 @@
 #ifndef INC_CONFIGURATION_H_
 #define INC_CONFIGURATION_H_
 
-#define VERSION "b1.0.0.0"
+#define VERSION "b1.1.0.0"
 
 /************************PINOUTS***********************/
 
@@ -33,8 +33,17 @@
 #define LCD_X_SIZE 96
 #define LCD_Y_SIZE 68
 
+//Select language
 #define LANGUAGE_RU
 //#define LANGUAGE_EN
+
+#ifdef LANGUAGE_RU
+#undef LANGUAGE_EN
+#elif defined(LANGUAGE_EN)
+#undef LANGUAGE_RU
+#else
+#define LANGUAGE_EN
+#endif
 
 #define PAGES 9
 
@@ -59,6 +68,16 @@
 //Battery minimum and maximum values (min = 3.6v, max = 4.2v)
 #define BAT_ADC_MIN 2234
 #define BAT_ADC_MAX 2606
+
+//Select bluetooth
+#define BLUETOOTH_SUPPORT
+//#define BLE_SUPPORT
+
+#ifdef BLUETOOTH_SUPPORT
+#undef BLE_SUPPORT
+#elif defined(BLE_SUPPORT)
+#undef BLUETOOTH_SUPPORT
+#endif
 
 //#define DEBUG
 

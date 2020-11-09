@@ -50,6 +50,7 @@ void Initialize_variables(){
 	GWORK.timer_remain = 0;
 	GWORK.rad_dose_old = 0;
 	GWORK.rad_back = 0;
+	GWORK.rad_back_old = 0;
 	GWORK.rad_max = 0;
 	GWORK.rad_dose = 0;
 	GWORK.alarm_timer = 0;
@@ -74,10 +75,10 @@ void Initialize_variables(){
 	GFLAGS.is_charged = false;
 	GFLAGS.is_detected = false;
 	GFLAGS.is_memory_initialized = false;
-	GFLAGS.active_hv_gen = false;
+	GFLAGS.is_tracking_enabled = true;
 	GFLAGS.is_mean_mode = false;
 	GFLAGS.is_flash_initialized = false;
-	GFLAGS.particle_mode = false;
+	GFLAGS.is_particle_mode = false;
 	GFLAGS.calculate_dose = true;
 
 	GUI.counter = 0;
@@ -248,7 +249,7 @@ uint32_t GetRomFree(){
 /*****************************************************************************************************************/
 bool Read_configuration(){
 	uint32_t readed_mem;
-	uint8_t array_len = 14;
+	uint8_t array_len = 15;
 
 	uint32_t l_Address, l_Index;
 
@@ -278,10 +279,8 @@ bool Read_configuration(){
 		DevNVRAM.GSETTING.w25qxx_address = 0x00001000;
 		DevNVRAM.GSETTING.sensor_area = 7;
 		DevNVRAM.GSETTING.log_save_period = 30;
+		DevNVRAM.GSETTING.session_number = 0;
 
-		//Memory is clear, first init. Writing columns
-		char* str = "BACK,DOSE,HWR,MIN,SEC,LAT,LON\n";
-		Write_string_w25qxx(str);
 		Write_configuration();
 	}
 }
@@ -289,7 +288,7 @@ bool Read_configuration(){
 /*****************************************************************************************************************/
 bool Write_configuration(){
 	uint32_t l_Address, l_Index, l_Error;
-	uint8_t array_len = 14;
+	uint8_t array_len = 15;
 
 	l_Address = 0x00;
 	l_Index = 0x00;
@@ -334,9 +333,34 @@ void Reset_settings(){
 }
 
 /*****************************************************************************************************************/
+/**************************************************Clear log memory***********************************************/
+/*****************************************************************************************************************/
+void Clear_memory(){
+	uint32_t current_sector = 0x00001000;
+	do{
+		W25qxx_EraseSector(current_sector);
+		current_sector += 0x00001000;
+	}while(current_sector < DevNVRAM.GSETTING.w25qxx_address + 0x00001000);
+
+	DevNVRAM.GSETTING.w25qxx_address = 0x00001000;
+	DevNVRAM.GSETTING.session_number = 0;
+	Write_configuration();
+}
+
+void Erase_memory(){
+	W25qxx_EraseChip();
+	Read_configuration();
+}
+
+/*****************************************************************************************************************/
 /********************************************Reset activity test data*********************************************/
 /*****************************************************************************************************************/
 void Reset_activity_test(){
+	memset(GWORK.rad_buff, 0, GWORK.real_geigertime);
+	GFLAGS.is_mean_mode = false;
+	GFLAGS.is_particle_mode = false;
+	GFLAGS.is_particle_per_sec_mode = false;
+	GFLAGS.calculate_dose = false;
 	GFLAGS.is_alarm = false;
 	GWORK.rad_max = 0;
 	GWORK.rad_back = 0;
@@ -364,4 +388,33 @@ void Calculate_std(){
 /*****************************************************************************************************************/
 void transmit_log(){
 
+}
+
+/*****************************************************************************************************************/
+void activity_test_timer_ticker(){
+	if(!GFLAGS.stop_timer){
+		if(GWORK.time_min != 0 && GWORK.time_sec == 0){
+			--GWORK.time_min;
+			GWORK.time_sec=60;
+		}
+		if(GWORK.time_sec != 0){ --GWORK.time_sec; }
+		GWORK.timer_remain--;
+		if(GWORK.timer_remain == 0){
+			GFLAGS.stop_timer = true;
+			GFLAGS.do_alarm = true;
+		}
+	}
+}
+
+/*****************************************************************************************************************/
+void geiger_counter_ticker(){
+	if(current_hour<99) {
+		if(++current_seconds>59){
+			if(++current_minutes>59){
+				if(++current_hour>99) current_hour=99; //часы
+					current_minutes=0;
+			}
+			current_seconds=0;
+		}
+	}
 }

@@ -12,6 +12,7 @@
 #include "libs/LCD_1202.h"
 
 void init_outputs();
+void send_report();
 void clear_screen();
 void beep();
 void draw_update();

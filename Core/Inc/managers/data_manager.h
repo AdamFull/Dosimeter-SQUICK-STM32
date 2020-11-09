@@ -41,11 +41,13 @@ typedef struct {
 	uint32_t sensor_area;
 	uint32_t log_save_period;
 
+	uint32_t session_number;
+
 } geiger_settings;
 
 typedef union {
 	geiger_settings GSETTING;
-	uint32_t data32[14];
+	uint32_t data32[15];
 } NVRAM;
 
 typedef struct {
@@ -61,12 +63,12 @@ typedef struct {
 	volatile uint16_t timer_remain;
 
 	unsigned rad_dose_old;
-	volatile unsigned rad_back, rad_max, rad_dose;
+	volatile unsigned rad_back, rad_max, rad_dose, rad_back_old;
 
 	unsigned long alarm_timer;
 
 	uint16_t *rad_buff;
-	uint16_t *stat_buff;		//Buffer for contain current stat values
+	uint32_t *stat_buff;		//Buffer for contain current stat values
 } geiger_work;
 
 typedef struct {
@@ -108,15 +110,15 @@ typedef struct {
 	bool is_charged;
 	volatile bool is_detected;
 	bool is_memory_initialized;
-	bool active_hv_gen;
 	bool is_tracking_enabled;
 	bool log_transfer;
 	bool is_monitor_enabled;
 	bool is_flash_initialized;
-	bool particle_mode;
 	bool calculate_dose;
 
+	bool is_particle_mode;
 	bool is_mean_mode;
+	bool is_particle_per_sec_mode;
 } geiger_flags;
 
 typedef  enum {
@@ -155,9 +157,13 @@ void transmit_log();
 
 void Reset_dose();
 void Reset_settings();
+void Clear_memory();
+void Erase_memory();
 
 void Reset_activity_test();
 
 volatile void Calculate_std();
+void activity_test_timer_ticker();
+void geiger_counter_ticker();
 
 #endif /* INC_DATA_MANAGER_H_ */

@@ -13,6 +13,8 @@ extern geiger_mode GMODE;
 extern NVRAM DevNVRAM;
 extern geiger_ui GUI;
 
+extern bool screen_saver_state;
+
 uint8_t submode_cursor = 0;
 
 /*****************************************************************************************************************/
@@ -49,8 +51,7 @@ void move_cursor(bool direction, bool editable, bool menu_mode){
 					case 0:{ if(GUI.editable < 31) GUI.editable++; } break;
 					case 1:{ if(GUI.editable < 500) GUI.editable+=5; } break;
 					case 2:{ if(GUI.editable < 500) GUI.editable+=10; } break;
-					case 3:{ if(GUI.editable < 12) GUI.editable+=1; } break;
-					case 4:{ if(GUI.editable < 300) GUI.editable+=30; } break;
+					case 3:{ if(GUI.editable < 300) GUI.editable+=5; } break;
 				}
 			}
 		}else{
@@ -72,8 +73,8 @@ void move_cursor(bool direction, bool editable, bool menu_mode){
 					case 0:{ if(GUI.editable > 5) GUI.editable--; } break;
 					case 1:{ if(GUI.editable > 5) GUI.editable-=5; } break;
 					case 2:{ if(GUI.editable > 30) GUI.editable-=10; } break;
-					case 3:{ if(GUI.editable > -12) GUI.editable-=1; } break;
-					case 4:{ if(GUI.editable > 30) GUI.editable-=30; } break;
+					case 3:{ if(GUI.editable > 5) GUI.editable-=5; } break;
+
 				}
 			}
 		}
@@ -83,13 +84,13 @@ void move_cursor(bool direction, bool editable, bool menu_mode){
 			if(menu_mode && GUI.menu_page != 8){
 				switch (GUI.menu_page){
 					case 0:{ if(GUI.cursor < 4) GUI.cursor++; } break;
-					case 1:{ if(GUI.cursor < 2) GUI.cursor++; } break;
+					case 1:{ if(GUI.cursor < 1) GUI.cursor++; } break;
 					case 2:{ if(GUI.cursor < 4) GUI.cursor++; } break;
-					case 3:{ if(GUI.cursor < 2) GUI.cursor++; } break;
+					case 3:{ if(GUI.cursor < 3) GUI.cursor++; } break;
 					case 4:{ if(GUI.cursor < 2) GUI.cursor++; } break;
 					case 5:{ if(GUI.cursor < 1) GUI.cursor++; } break;
 					case 6:{ if(GUI.cursor < 4) GUI.cursor++; } break;
-					case 7:{ if(GUI.cursor < 4) GUI.cursor++; } break;
+					case 7:{ if(GUI.cursor < 3) GUI.cursor++; } break;
 				}
 			}
 
@@ -152,9 +153,6 @@ void cursor_select(bool direction, bool editable, bool menu_mode){
 					switch (GUI.cursor){
 						case 0:{ GMODE.counter_mode = 0; GUI.page = 1; }break;
 						case 1:{ GUI.menu_page = 4; }break;
-						case 2:{ GMODE.counter_mode = 2; GUI.page = 1; GWORK.rad_max = 0;
-						for(int i = 0; i < LCD_X_SIZE; i++) GUI.mass[i] = 0;
-						}break;
 					}
 					GUI.cursor = 0;
 				}break;
@@ -172,7 +170,8 @@ void cursor_select(bool direction, bool editable, bool menu_mode){
 					switch (GUI.cursor){								//Стереть данные
 						case 0:{ Reset_settings(); GUI.menu_page = 0; }break;
 						case 1:{ Reset_dose(); GUI.menu_page = 0; }break;
-						case 2:{ Reset_dose(); Reset_settings(); GUI.menu_page = 0; }break;
+						case 2:{ Clear_memory(); GUI.menu_page = 0; }break;
+						case 3:{ Erase_memory(); GUI.menu_page = 0; }break;
 					}
 					GUI.cursor = 0;
 				}break;
@@ -274,41 +273,45 @@ void button_action(){
 		}
 		update_request();
 	}else if(isClick(&btn_reset) && !btn_reset_isHolded){					//Клик кнопки ресет
+		if(!screen_saver_state){
+			if(!menu_mode && !GFLAGS.do_alarm) GFLAGS.is_muted = !GFLAGS.is_muted;
+			if(!menu_mode && GFLAGS.do_alarm) GFLAGS.no_alarm = !GFLAGS.no_alarm;
+			move_cursor(false, GFLAGS.is_editing_mode, menu_mode);
+		}
 		battery_safe_update();
-		if(!menu_mode && !GFLAGS.do_alarm) GFLAGS.is_muted = !GFLAGS.is_muted;
-		if(!menu_mode && GFLAGS.do_alarm) GFLAGS.no_alarm = !GFLAGS.no_alarm;
-		move_cursor(false, GFLAGS.is_editing_mode, menu_mode);
 		update_request();
 	}else if(btn_set_isHolded){												//Удержание кнопки сет
 		battery_safe_update();
 		cursor_select(true, GFLAGS.is_editing_mode, menu_mode);
 		update_request();
 	}else if(isClick(&btn_set) && !btn_set_isHolded){					//Клик кнопки сет
+		if(!screen_saver_state){
+			if(!menu_mode && !GFLAGS.do_alarm){
+				if(++submode_cursor > 3) submode_cursor = 0;
+				GWORK.rad_max = 0;
+				memset(GWORK.rad_buff, 0, GWORK.real_geigertime);
+			}
+			if(!menu_mode && GMODE.counter_mode == 1 && !GFLAGS.next_step && GFLAGS.stop_timer){
+				GWORK.rad_max = GWORK.rad_back;
+				GWORK.rad_back = 0;
+				GFLAGS.next_step = true;
+				GFLAGS.stop_timer = false;
+				GFLAGS.do_alarm = false;
+				GWORK.time_min = GWORK.time_min_old;
+				GWORK.timer_remain = GWORK.timer_time;
+				GWORK.time_sec = 0;
+			}
+			if(!menu_mode && GMODE.counter_mode == 1 && GFLAGS.do_alarm && GFLAGS.next_step && GFLAGS.stop_timer){
+				GFLAGS.do_alarm = false;
+			}
+
+			if(!menu_mode && GMODE.counter_mode == 0){
+				GFLAGS.is_mean_mode = !GFLAGS.is_mean_mode;
+			}
+
+			move_cursor(true, GFLAGS.is_editing_mode, menu_mode);
+		}
 		battery_safe_update();
-		if(!menu_mode && !GFLAGS.do_alarm){
-			if(++submode_cursor > 2) submode_cursor = 0;
-			GWORK.rad_max = 0;
-			memset(GWORK.rad_buff, 0, GWORK.real_geigertime);
-		}
-		if(!menu_mode && GMODE.counter_mode == 1 && !GFLAGS.next_step && GFLAGS.stop_timer){
-			GWORK.rad_max = GWORK.rad_back;
-			GWORK.rad_back = 0;
-			GFLAGS.next_step = true;
-			GFLAGS.stop_timer = false;
-			GFLAGS.do_alarm = false;
-			GWORK.time_min = GWORK.time_min_old;
-			GWORK.timer_remain = GWORK.timer_time;
-			GWORK.time_sec = 0;
-		}
-		if(!menu_mode && GMODE.counter_mode == 1 && GFLAGS.do_alarm && GFLAGS.next_step && GFLAGS.stop_timer){
-			GFLAGS.do_alarm = false;
-		}
-
-		if(!menu_mode && GMODE.counter_mode == 0){
-			GFLAGS.is_mean_mode = !GFLAGS.is_mean_mode;
-		}
-
-		move_cursor(true, GFLAGS.is_editing_mode, menu_mode);
 		update_request();
 	}
 #endif
