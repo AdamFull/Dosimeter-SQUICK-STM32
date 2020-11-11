@@ -179,33 +179,36 @@ int main(void)
 
 	if(!GFLAGS.is_charging){
 		  if(strlen(rx_buffer) > 0) {																//If cbc received string, check what is it
-			  if(strcmp(rx_buffer, "rdlog\n") == 0 && !GFLAGS.log_transfer){						//If it was rdlog, start transmit log from flash
-				  GFLAGS.log_transfer = true;
+			  if(strcmp(rx_buffer, "rdlog") == 0 && !GFLAGS.log_mutex){						//If it was rdlog, start transmit log from flash
+				  GFLAGS.log_mutex = true;
 				  GFLAGS.is_monitor_enabled = false;
 				  uint32_t l_Address = 0x00001000;
 				  uint32_t l_Index = 0;
 				  char to_append = '\0';
-				  sprintf(strbuffer, "%d\r\n", DevNVRAM.GSETTING.w25qxx_address - l_Address);
-				  LL_mDelay(100);
-				  SendMessage(strbuffer);
+				  sprintf(strbuffer, "%d", DevNVRAM.GSETTING.w25qxx_address - l_Address);
+				  strncat(strbuffer, &to_append, sizeof(char));
+				  CDC_Transmit_FS(strbuffer, strlen(strbuffer));
+				  LL_mDelay(TRANSMITION_DELAY);
 				  while(l_Address < DevNVRAM.GSETTING.w25qxx_address){
 					  l_Index = 0;
-					  memset(strbuffer, '\0', sizeof(strbuffer));
-					  do{
+					  memset(strbuffer, 0, sizeof(strbuffer));
+					  while(strbuffer[abs(l_Index-1)] != '\n'){
 						  W25qxx_ReadByte(&strbuffer[l_Index], l_Address);
 						  l_Address++; l_Index++;
-					  }while(strbuffer[abs(l_Index)] != '\n' && isdigit(strbuffer[abs(l_Index - 1)]));
+					  }
 					  strncat(strbuffer, &to_append, sizeof(char));
 					  if(strbuffer != NULL) CDC_Transmit_FS(strbuffer, strlen(strbuffer));
-					  //LL_mDelay(10);
-					  delayUs(300);
+					  LL_mDelay(TRANSMITION_DELAY);
 				  }
+				  LL_mDelay(TRANSMITION_DELAY);
 				  SendMessage("done\r\n");
+				  Clear_memory();
+				  GFLAGS.log_mutex = false;
 			  }else if(strcmp(rx_buffer, "clmem\n") == 0){											//If received clmem, start cleaning flash
 				  SendMessage("Erasing chip.\r\n");
 				  W25qxx_EraseChip();
 				  SendMessage("done\0");
-				  LL_mDelay(1);
+				  LL_mDelay(TRANSMITION_DELAY);
 				  SendMessage("Please reconnect device to computer.\r\n");
 				  NVIC_SystemReset();
 			  }else if(strcmp(rx_buffer, "monitor\n") == 0){										//If received monitor, let's enable work log transfer
@@ -215,7 +218,6 @@ int main(void)
 			  }
 			  memset(rx_buffer, 0, sizeof(rx_buffer));
 		  }
-		  GFLAGS.log_transfer = false;
 		button_action();
 
 		if(GMODE.counter_mode != 1){
@@ -258,7 +260,7 @@ int main(void)
 			GMEANING.current_high_voltage = get_high_voltage();
 
 			//High voltage regulation
-			if(DevNVRAM.GSETTING.ACTIVE_COUNTERS != 0){
+			if(DevNVRAM.GSETTING.ACTIVE_COUNTERS != 0 && !GFLAGS.log_mutex){
 				if(GFLAGS.stop_timer && GMODE.counter_mode == 1) TIM2->CCR1 = 0;
 				else{
 					if(GMEANING.current_high_voltage < GWORK.voltage_req) { if(GWORK.transformer_pwm < 200)GWORK.transformer_pwm++; }
@@ -287,10 +289,10 @@ int main(void)
 		if(GetTick() - gps_millis > DevNVRAM.GSETTING.log_save_period * 1000){
 			gps_millis = GetTick();
 
-			if(GFLAGS.is_tracking_enabled && !GFLAGS.log_transfer){
+			if(GFLAGS.is_tracking_enabled){
 				uint8_t buffer[64];
 				memset(buffer, 0, sizeof(buffer));
-				sprintf(buffer, "%u,%u,%u,%u,%u,%u\n", DevNVRAM.GSETTING.session_number, GWORK.rad_back, GWORK.rad_dose, (uint32_t)current_hour, (uint32_t)current_minutes, (uint32_t)current_seconds);
+				sprintf(buffer, "%u,%u,%u,%u,%u,%u\n", DevNVRAM.GSETTING.session_number, GWORK.rad_back, GWORK.rad_dose, current_hour, current_minutes, current_seconds);
 				if(!Write_string_w25qxx(buffer)){
 					//Not enought memory, can't write
 					//Do something

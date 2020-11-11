@@ -41,7 +41,7 @@ typedef struct {
 	uint32_t sensor_area;
 	uint32_t log_save_period;
 
-	uint32_t session_number;
+	unsigned session_number;
 
 } geiger_settings;
 
@@ -111,7 +111,7 @@ typedef struct {
 	volatile bool is_detected;
 	bool is_memory_initialized;
 	bool is_tracking_enabled;
-	bool log_transfer;
+	bool log_mutex;
 	bool is_monitor_enabled;
 	bool is_flash_initialized;
 	bool calculate_dose;

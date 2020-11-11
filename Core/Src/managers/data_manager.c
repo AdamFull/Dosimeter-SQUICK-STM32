@@ -144,18 +144,19 @@ bool Init_w25qxx(){
 
 /*****************************************************************************************************************/
 bool Write_string_w25qxx(uint8_t* str){
-	if((w25qxx.CapacityInKiloByte*1024) - (DevNVRAM.GSETTING.w25qxx_address + strlen(str)) > 0){
-		for(size_t i = 0; i < strlen(str); i++){
-			W25qxx_WriteByte(str[i], DevNVRAM.GSETTING.w25qxx_address);
-			DevNVRAM.GSETTING.w25qxx_address++;
+	if(!GFLAGS.log_mutex){
+		if((w25qxx.CapacityInKiloByte*1024) - (DevNVRAM.GSETTING.w25qxx_address + strlen(str)) > 0){
+			for(size_t i = 0; i < strlen(str); i++){
+				W25qxx_WriteByte(str[i], DevNVRAM.GSETTING.w25qxx_address);
+				DevNVRAM.GSETTING.w25qxx_address++;
+			}
+			Write_configuration();
+			return true;
+		}else{		//Memory not enougth
+			device_status = EXT_MEMORY_IS_OVERFLOW;
+			return false;
 		}
-		Write_configuration();
-		return true;
-	}else{		//Memory not enougth
-		device_status = EXT_MEMORY_IS_OVERFLOW;
-		return false;
 	}
-
 }
 
 /*****************************************************************************************************************/
@@ -278,7 +279,7 @@ bool Read_configuration(){
 		DevNVRAM.GSETTING.rad_sum = 0;
 		DevNVRAM.GSETTING.w25qxx_address = 0x00001000;
 		DevNVRAM.GSETTING.sensor_area = 7;
-		DevNVRAM.GSETTING.log_save_period = 30;
+		DevNVRAM.GSETTING.log_save_period = 5;
 		DevNVRAM.GSETTING.session_number = 0;
 
 		Write_configuration();
@@ -302,7 +303,7 @@ bool Write_configuration(){
 	l_Address = 0x00;
 	l_Index = 0x00;
 	if(l_Error > 0){
-		W25qxx_EraseSector(0x1000);
+		W25qxx_EraseSector(0x0);
 		while(l_Address < 0x04*array_len){
 			if(Write_4byte(DevNVRAM.data32[l_Index], l_Address)){
 				l_Index = l_Index+1;
@@ -327,7 +328,7 @@ void Reset_dose(){
 /*******************************************Reset settings to defaults********************************************/
 /*****************************************************************************************************************/
 void Reset_settings(){
-	W25qxx_EraseSector(0x1000);
+	W25qxx_EraseSector(0x0);
 	Read_configuration();
 	Update_rad_buffer();
 }
@@ -336,15 +337,17 @@ void Reset_settings(){
 /**************************************************Clear log memory***********************************************/
 /*****************************************************************************************************************/
 void Clear_memory(){
-	uint32_t current_sector = 0x00001000;
+	GFLAGS.log_mutex = true;
+	uint32_t current_sector = 0x1;
 	do{
 		W25qxx_EraseSector(current_sector);
-		current_sector += 0x00001000;
-	}while(current_sector < DevNVRAM.GSETTING.w25qxx_address + 0x00001000);
+		current_sector++;
+	}while(current_sector < 0x1 + (DevNVRAM.GSETTING.w25qxx_address/0x1000));
 
-	DevNVRAM.GSETTING.w25qxx_address = 0x00001000;
+	DevNVRAM.GSETTING.w25qxx_address = 0x1000;
 	DevNVRAM.GSETTING.session_number = 0;
 	Write_configuration();
+	GFLAGS.log_mutex = false;
 }
 
 void Erase_memory(){
