@@ -100,7 +100,7 @@
 #define SetXAddr4  0x00
 #define SetXAddr3  0x10
 
-#define swap(a, b) {uint8_t t = a; a = b; b = t; }
+#define swap(a, b) {uint16_t t = a; a = b; b = t; }
 
 typedef struct {
 	GPIO_TypeDef *MOSIPORT;
@@ -115,35 +115,35 @@ typedef struct {
 	GPIO_TypeDef *CSPORT;
 	uint16_t      CSPIN;
 
-	uint8_t lcd_contrast;
+	uint16_t lcd_contrast;
 } LCD_CONFIG;
 
-void LCD_SendByte(uint8_t mode, uint8_t c);
+void LCD_SendByte(uint16_t mode, uint16_t c);
 void LCD_Clear(void);
 void LCD_Update(void);
 void LCD_Init(LCD_CONFIG config);
-void LCD_SetContrast(uint8_t value);
-void LCD_SetPowerSave(bool value);
+void LCD_SetContrast(uint16_t value);
+void LCD_PowerOn(bool);
+void LCD_PowerSave(bool);
 void LCD_Flip();
-void LCD_SetPower(bool value);
 void LCD_SetInvert(bool value);
-void LCD_SetCharSize(uint8_t size);
-void LCD_SetTextColor(uint8_t c, uint8_t b);
-void LCD_SetCursor(uint8_t x, uint8_t y);
-void LCD_AddToCursor(uint8_t x, uint8_t y);
+void LCD_SetCharSize(uint16_t size);
+void LCD_SetTextColor(uint16_t c, uint16_t b);
+void LCD_SetCursor(uint16_t x, uint16_t y);
+void LCD_AddToCursor(uint16_t x, uint16_t y);
 
-void LCD_DrawPixel(uint8_t x, uint8_t y, uint8_t color);
-void LCD_DrawLine(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, uint8_t color);
-void LCD_DrawFastVLine(uint8_t x, uint8_t y, uint8_t h, uint8_t color);
-void LCD_DrawFastHLine(uint8_t x, uint8_t y, uint8_t w, uint8_t color);
-void LCD_DrawRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t color);
-void LCD_FillRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t color);
-void LCD_FillScreen(uint8_t color);
-void LCD_DrawChar(uint8_t x, uint8_t y, uint8_t color, uint8_t bg, uint8_t size, unsigned char c);
+void LCD_DrawPixel(uint16_t x, uint16_t y, uint16_t color);
+void LCD_DrawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint16_t color);
+void LCD_DrawFastVLine(uint16_t x, uint16_t y, uint16_t h, uint16_t color);
+void LCD_DrawFastHLine(uint16_t x, uint16_t y, uint16_t w, uint16_t color);
+void LCD_DrawRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);
+void LCD_FillRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);
+void LCD_FillScreen(uint16_t color);
+void LCD_DrawChar(uint16_t x, uint16_t y, uint16_t color, uint16_t bg, uint16_t size, unsigned char c);
 void LCD_JustDrawChar(unsigned char c);
 void LCD_print(const char *str);
 void LCD_write(float num, bool as_float);
-void LCD_DrawBitmap(uint8_t x, uint8_t y, const char *bitmap, uint8_t w, uint8_t h, uint8_t color);
+void LCD_DrawBitmap(uint16_t x, uint16_t y, const char *bitmap, uint16_t w, uint16_t h, uint16_t color);
 
 const char *toString(uint32_t value, uint16_t size);
 

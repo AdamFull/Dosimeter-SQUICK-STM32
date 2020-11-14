@@ -40,7 +40,7 @@ void move_cursor(bool direction, bool editable, bool menu_mode){
 				}
 			}else if(GUI.menu_page == 6){
 				switch (GUI.cursor){
-					case 0:{ if(GUI.editable < 250) GUI.editable++; } break;
+					case 0:{ if(GUI.editable < 450) GUI.editable++; } break;
 					case 1:{ if(GUI.editable < 40) GUI.editable+=5; } break;
 					case 2:{ if(GUI.editable < 500) GUI.editable+=10; } break;
 					case 3:{ if(GUI.editable < 50) GUI.editable++; } break;
@@ -124,7 +124,7 @@ void cursor_select(bool direction, bool editable, bool menu_mode){
 					case 1:{ Set_setting(&DevNVRAM.GSETTING.GEIGER_ERROR, (uint32_t)GUI.editable); }break;
 					case 2:{ Set_setting(&DevNVRAM.GSETTING.GEIGER_VOLTAGE, (uint32_t)GUI.editable); }break;
 					case 3:{ Set_setting(&DevNVRAM.GSETTING.sensor_area, (uint32_t)GUI.editable); }break;
-					case 4:{ Set_setting(&DevNVRAM.GSETTING.ACTIVE_COUNTERS, (uint32_t)GUI.editable); }break;
+					case 4:{ Set_setting(&DevNVRAM.GSETTING.ACTIVE_COUNTERS, (uint32_t)GUI.editable); update_selected_counter(); }break;
 				}
 			}else if(GUI.menu_page == 7){
 				switch (GUI.cursor){
@@ -192,7 +192,7 @@ void cursor_select(bool direction, bool editable, bool menu_mode){
 				case 5:{
 					switch (GUI.cursor){								//Вообще это диалог выбора, но пока что это не он
 						case 0:{
-										//sleep();
+							sleep();
 						}break;
 						case 1:{ GUI.menu_page = 0; }break;
 					}
@@ -289,7 +289,7 @@ void button_action(){
 			if(!menu_mode && !GFLAGS.do_alarm){
 				if(++submode_cursor > 3) submode_cursor = 0;
 				GWORK.rad_max = 0;
-				memset(GWORK.rad_buff, 0, GWORK.real_geigertime);
+				for(uint32_t i = 0; i < MAXIMUM_RAD_BUFEER_LEN; i++) GWORK.rad_buff[i] = 0;
 			}
 			if(!menu_mode && GMODE.counter_mode == 1 && !GFLAGS.next_step && GFLAGS.stop_timer){
 				GWORK.rad_max = GWORK.rad_back;

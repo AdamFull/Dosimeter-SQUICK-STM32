@@ -51,9 +51,10 @@
 
 /* Private variables ---------------------------------------------------------*/
 
+RTC_HandleTypeDef hrtc;
+
 /* USER CODE BEGIN PV */
 
-char rx_buffer[32];
 unsigned long current_millis = 0;
 unsigned long gps_millis = 0;
 unsigned long screen_saver_millis = 0;
@@ -67,8 +68,6 @@ extern geiger_work GWORK;
 extern geiger_mode GMODE;
 extern NVRAM DevNVRAM;
 extern geiger_ui GUI;
-
-uint8_t strbuffer[64] = {0};
 
 extern uint8_t current_hour;
 extern uint8_t current_minutes;
@@ -86,8 +85,8 @@ static void MX_TIM2_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_ADC2_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_RTC_Init(void);
 /* USER CODE BEGIN PFP */
-static void SendMessage(char *message);
 
 /* USER CODE END PFP */
 
@@ -95,12 +94,25 @@ static void SendMessage(char *message);
 /* USER CODE BEGIN 0 */
 
 void battery_safe_update(){
-	screen_saver_state = false;
+	if(screen_saver_state){
+		screen_saver_state = false;
+		display_power_on();
+	}
 	screen_saver_millis = GetTick();
 }
 
-void SendMessage(char *message){
-	CDC_Transmit_FS(message, strlen(message));
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
+	switch(GPIO_Pin){
+	case 1:
+		interrupts_handler();
+		break;
+	case 2:
+		interrupts_handler();
+		break;
+	case 3:
+		interrupts_handler();
+		break;
+	}
 }
 
 /* USER CODE END 0 */
@@ -141,6 +153,7 @@ int main(void)
   MX_ADC2_Init();
   MX_USB_DEVICE_Init();
   MX_USART1_UART_Init();
+  MX_RTC_Init();
   /* USER CODE BEGIN 2 */
 
   LL_SYSTICK_EnableIT();
@@ -157,11 +170,13 @@ int main(void)
   GMODE.counter_mode = 0;
 
   //Enable timers
-     LL_TIM_EnableIT_UPDATE(TIM1);
-     LL_TIM_EnableCounter(TIM1);
+  LL_TIM_EnableIT_UPDATE(TIM1);
+  LL_TIM_EnableCounter(TIM1);
 
-     LL_TIM_CC_EnableChannel(TIM2, LL_TIM_CHANNEL_CH1 | LL_TIM_CHANNEL_CH2 | LL_TIM_CHANNEL_CH3);
-     LL_TIM_EnableCounter(TIM2);
+  LL_TIM_CC_EnableChannel(TIM2, LL_TIM_CHANNEL_CH1 | LL_TIM_CHANNEL_CH2 | LL_TIM_CHANNEL_CH3);
+  LL_TIM_EnableCounter(TIM2);
+
+  update_selected_counter();
 
   /* USER CODE END 2 */
 
@@ -178,46 +193,8 @@ int main(void)
 	//if(is_low_voltage) low_battery_kill();
 
 	if(!GFLAGS.is_charging){
-		  if(strlen(rx_buffer) > 0) {																//If cbc received string, check what is it
-			  if(strcmp(rx_buffer, "rdlog") == 0 && !GFLAGS.log_mutex){						//If it was rdlog, start transmit log from flash
-				  GFLAGS.log_mutex = true;
-				  GFLAGS.is_monitor_enabled = false;
-				  uint32_t l_Address = 0x00001000;
-				  uint32_t l_Index = 0;
-				  char to_append = '\0';
-				  sprintf(strbuffer, "%d", DevNVRAM.GSETTING.w25qxx_address - l_Address);
-				  strncat(strbuffer, &to_append, sizeof(char));
-				  CDC_Transmit_FS(strbuffer, strlen(strbuffer));
-				  LL_mDelay(TRANSMITION_DELAY);
-				  while(l_Address < DevNVRAM.GSETTING.w25qxx_address){
-					  l_Index = 0;
-					  memset(strbuffer, 0, sizeof(strbuffer));
-					  while(strbuffer[abs(l_Index-1)] != '\n'){
-						  W25qxx_ReadByte(&strbuffer[l_Index], l_Address);
-						  l_Address++; l_Index++;
-					  }
-					  strncat(strbuffer, &to_append, sizeof(char));
-					  if(strbuffer != NULL) CDC_Transmit_FS(strbuffer, strlen(strbuffer));
-					  LL_mDelay(TRANSMITION_DELAY);
-				  }
-				  LL_mDelay(TRANSMITION_DELAY);
-				  SendMessage("done\r\n");
-				  Clear_memory();
-				  GFLAGS.log_mutex = false;
-			  }else if(strcmp(rx_buffer, "clmem\n") == 0){											//If received clmem, start cleaning flash
-				  SendMessage("Erasing chip.\r\n");
-				  W25qxx_EraseChip();
-				  SendMessage("done\0");
-				  LL_mDelay(TRANSMITION_DELAY);
-				  SendMessage("Please reconnect device to computer.\r\n");
-				  NVIC_SystemReset();
-			  }else if(strcmp(rx_buffer, "monitor\n") == 0){										//If received monitor, let's enable work log transfer
-				  GFLAGS.is_monitor_enabled = !GFLAGS.is_monitor_enabled;
-			  }else if(strcmp(rx_buffer, "rdcfg\n") == 0){
-				  //Read settings
-			  }
-			  memset(rx_buffer, 0, sizeof(rx_buffer));
-		  }
+		uart_transmition_handler();
+
 		button_action();
 
 		if(GMODE.counter_mode != 1){
@@ -277,8 +254,7 @@ int main(void)
 			if(GetTick() - screen_saver_millis > SCREEN_SAVER_TIME){
 				screen_saver_millis = GetTick();
 				screen_saver_state = true;
-				clear_screen();
-				TIM2->CCR1 = 0;
+				display_power_off();
 				pwm_backlight(0);
 
 			}
@@ -361,6 +337,18 @@ void SystemClock_Config(void)
   {
 
   }
+  LL_RCC_LSI_Enable();
+
+   /* Wait till LSI is ready */
+  while(LL_RCC_LSI_IsReady() != 1)
+  {
+
+  }
+  LL_PWR_EnableBkUpAccess();
+  LL_RCC_ForceBackupDomainReset();
+  LL_RCC_ReleaseBackupDomainReset();
+  LL_RCC_SetRTCClockSource(LL_RCC_RTC_CLKSOURCE_LSI);
+  LL_RCC_EnableRTC();
   LL_RCC_PLL_ConfigDomain_SYS(LL_RCC_PLLSOURCE_HSE_DIV_1, LL_RCC_PLL_MUL_9);
   LL_RCC_PLL_Enable();
 
@@ -506,6 +494,74 @@ static void MX_ADC2_Init(void)
 }
 
 /**
+  * @brief RTC Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_RTC_Init(void)
+{
+
+  /* USER CODE BEGIN RTC_Init 0 */
+
+  /* USER CODE END RTC_Init 0 */
+
+  RTC_TimeTypeDef sTime = {0};
+  RTC_DateTypeDef DateToUpdate = {0};
+  RTC_AlarmTypeDef sAlarm = {0};
+
+  /* USER CODE BEGIN RTC_Init 1 */
+
+  /* USER CODE END RTC_Init 1 */
+  /** Initialize RTC Only
+  */
+  hrtc.Instance = RTC;
+  hrtc.Init.AsynchPrediv = RTC_AUTO_1_SECOND;
+  hrtc.Init.OutPut = RTC_OUTPUTSOURCE_ALARM;
+  if (HAL_RTC_Init(&hrtc) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /* USER CODE BEGIN Check_RTC_BKUP */
+
+  /* USER CODE END Check_RTC_BKUP */
+
+  /** Initialize RTC and set the Time and Date
+  */
+  sTime.Hours = 0;
+  sTime.Minutes = 0;
+  sTime.Seconds = 0;
+
+  if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  DateToUpdate.WeekDay = RTC_WEEKDAY_MONDAY;
+  DateToUpdate.Month = RTC_MONTH_JANUARY;
+  DateToUpdate.Date = 1;
+  DateToUpdate.Year = 0;
+
+  if (HAL_RTC_SetDate(&hrtc, &DateToUpdate, RTC_FORMAT_BIN) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Enable the Alarm A
+  */
+  sAlarm.AlarmTime.Hours = 0;
+  sAlarm.AlarmTime.Minutes = 0;
+  sAlarm.AlarmTime.Seconds = 0;
+  sAlarm.Alarm = RTC_ALARM_A;
+  if (HAL_RTC_SetAlarm_IT(&hrtc, &sAlarm, RTC_FORMAT_BIN) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN RTC_Init 2 */
+
+  /* USER CODE END RTC_Init 2 */
+
+}
+
+/**
   * @brief SPI2 Initialization Function
   * @param None
   * @retval None
@@ -541,7 +597,7 @@ static void MX_SPI2_Init(void)
   LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* SPI2 interrupt Init */
-  NVIC_SetPriority(SPI2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),1, 0));
+  NVIC_SetPriority(SPI2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),3, 0));
   NVIC_EnableIRQ(SPI2_IRQn);
 
   /* USER CODE BEGIN SPI2_Init 1 */
@@ -583,7 +639,7 @@ static void MX_TIM1_Init(void)
   LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_TIM1);
 
   /* TIM1 interrupt Init */
-  NVIC_SetPriority(TIM1_UP_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),2, 0));
+  NVIC_SetPriority(TIM1_UP_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),4, 0));
   NVIC_EnableIRQ(TIM1_UP_IRQn);
 
   /* USER CODE BEGIN TIM1_Init 1 */
@@ -626,7 +682,7 @@ static void MX_TIM2_Init(void)
   LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_TIM2);
 
   /* TIM2 interrupt Init */
-  NVIC_SetPriority(TIM2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),3, 0));
+  NVIC_SetPriority(TIM2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),5, 0));
   NVIC_EnableIRQ(TIM2_IRQn);
 
   /* USER CODE BEGIN TIM2_Init 1 */
@@ -745,114 +801,62 @@ static void MX_USART1_UART_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
-  LL_EXTI_InitTypeDef EXTI_InitStruct = {0};
-  LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* GPIO Ports Clock Enable */
-  LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_GPIOC);
-  LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_GPIOD);
-  LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_GPIOA);
-  LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_GPIOB);
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
-  /**/
-  LL_GPIO_ResetOutputPin(GPIOC, LL_GPIO_PIN_13);
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, SPI1_CS_Pin|SPI1_SCK_Pin|SPI1_MOSI_Pin, GPIO_PIN_RESET);
 
-  /**/
-  LL_GPIO_ResetOutputPin(GPIOA, SPI1_CS_Pin|SPI1_SCK_Pin|SPI1_MOSI_Pin);
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, SPI1_RST_Pin|GPIO_PIN_12|GPIO_PIN_7, GPIO_PIN_RESET);
 
-  /**/
-  LL_GPIO_ResetOutputPin(GPIOB, SPI1_RST_Pin|LL_GPIO_PIN_12|LL_GPIO_PIN_7);
+  /*Configure GPIO pins : GINT1_Pin GINT2_Pin GINT3_Pin */
+  GPIO_InitStruct.Pin = GINT1_Pin|GINT2_Pin|GINT3_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /**/
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_13;
-  GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
-  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-  LL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-  /**/
+  /*Configure GPIO pins : SPI1_CS_Pin SPI1_SCK_Pin SPI1_MOSI_Pin */
   GPIO_InitStruct.Pin = SPI1_CS_Pin|SPI1_SCK_Pin|SPI1_MOSI_Pin;
-  GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
-  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
-  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-  LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /**/
-  GPIO_InitStruct.Pin = SPI1_RST_Pin|LL_GPIO_PIN_12;
-  GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
-  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
-  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-  LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  /*Configure GPIO pins : SPI1_RST_Pin PB12 */
+  GPIO_InitStruct.Pin = SPI1_RST_Pin|GPIO_PIN_12;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /**/
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_11|BSET_Pin|BRSET_Pin;
-  GPIO_InitStruct.Mode = LL_GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = LL_GPIO_PULL_UP;
-  LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  /*Configure GPIO pins : PB11 BSET_Pin BRSET_Pin */
+  GPIO_InitStruct.Pin = GPIO_PIN_11|BSET_Pin|BRSET_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /**/
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_7;
-  GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
-  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-  GPIO_InitStruct.Pull = LL_GPIO_PULL_DOWN;
-  LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /**/
-  LL_GPIO_AF_SetEXTISource(LL_GPIO_AF_EXTI_PORTA, LL_GPIO_AF_EXTI_LINE1);
-
-  /**/
-  LL_GPIO_AF_SetEXTISource(LL_GPIO_AF_EXTI_PORTA, LL_GPIO_AF_EXTI_LINE2);
-
-  /**/
-  LL_GPIO_AF_SetEXTISource(LL_GPIO_AF_EXTI_PORTA, LL_GPIO_AF_EXTI_LINE3);
-
-  /**/
-  EXTI_InitStruct.Line_0_31 = LL_EXTI_LINE_1;
-  EXTI_InitStruct.LineCommand = ENABLE;
-  EXTI_InitStruct.Mode = LL_EXTI_MODE_IT;
-  EXTI_InitStruct.Trigger = LL_EXTI_TRIGGER_FALLING;
-  LL_EXTI_Init(&EXTI_InitStruct);
-
-  /**/
-  EXTI_InitStruct.Line_0_31 = LL_EXTI_LINE_2;
-  EXTI_InitStruct.LineCommand = ENABLE;
-  EXTI_InitStruct.Mode = LL_EXTI_MODE_IT;
-  EXTI_InitStruct.Trigger = LL_EXTI_TRIGGER_FALLING;
-  LL_EXTI_Init(&EXTI_InitStruct);
-
-  /**/
-  EXTI_InitStruct.Line_0_31 = LL_EXTI_LINE_3;
-  EXTI_InitStruct.LineCommand = ENABLE;
-  EXTI_InitStruct.Mode = LL_EXTI_MODE_IT;
-  EXTI_InitStruct.Trigger = LL_EXTI_TRIGGER_RISING;
-  LL_EXTI_Init(&EXTI_InitStruct);
-
-  /**/
-  LL_GPIO_SetPinPull(GINT1_GPIO_Port, GINT1_Pin, LL_GPIO_PULL_UP);
-
-  /**/
-  LL_GPIO_SetPinPull(GINT2_GPIO_Port, GINT2_Pin, LL_GPIO_PULL_UP);
-
-  /**/
-  LL_GPIO_SetPinPull(GINT3_GPIO_Port, GINT3_Pin, LL_GPIO_PULL_UP);
-
-  /**/
-  LL_GPIO_SetPinMode(GINT1_GPIO_Port, GINT1_Pin, LL_GPIO_MODE_INPUT);
-
-  /**/
-  LL_GPIO_SetPinMode(GINT2_GPIO_Port, GINT2_Pin, LL_GPIO_MODE_INPUT);
-
-  /**/
-  LL_GPIO_SetPinMode(GINT3_GPIO_Port, GINT3_Pin, LL_GPIO_MODE_INPUT);
+  /*Configure GPIO pin : PB7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-  NVIC_SetPriority(EXTI1_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
-  NVIC_EnableIRQ(EXTI1_IRQn);
-  NVIC_SetPriority(EXTI2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
-  NVIC_EnableIRQ(EXTI2_IRQn);
-  NVIC_SetPriority(EXTI3_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
-  NVIC_EnableIRQ(EXTI3_IRQn);
+  HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI2_IRQn, 1, 0);
+  HAL_NVIC_EnableIRQ(EXTI2_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 2, 0);
+  HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 
 }
 

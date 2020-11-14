@@ -10,7 +10,7 @@
 #include "stdbool.h"
 #include "stm32f1xx_ll_adc.h"
 
-#define BANK_SIZE 5
+#define BANK_SIZE 16
 
 uint16_t battery_bank[BANK_SIZE];
 uint16_t hv_bank[BANK_SIZE];
@@ -21,8 +21,6 @@ uint16_t batValue = 0;
 uint16_t hvValue = 0;
 
 uint16_t battery_adc_value, high_voltage_adc_value;
-
-bool is_first_meaning = true;
 
 
 void adc_init(){

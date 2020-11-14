@@ -59,7 +59,7 @@ typedef struct {
 	bool btn_state;
 	bool btn_flag;
 
-	uint8_t btn_counter, last_counter, last_hold_counter;
+	uint16_t btn_counter, last_counter, last_hold_counter;
 	uint32_t btn_timer;
 
 	GyverButtonFlags flags;

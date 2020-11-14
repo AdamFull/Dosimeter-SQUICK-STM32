@@ -72,26 +72,26 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define GINT1_Pin LL_GPIO_PIN_1
+#define GINT1_Pin GPIO_PIN_1
 #define GINT1_GPIO_Port GPIOA
 #define GINT1_EXTI_IRQn EXTI1_IRQn
-#define GINT2_Pin LL_GPIO_PIN_2
+#define GINT2_Pin GPIO_PIN_2
 #define GINT2_GPIO_Port GPIOA
 #define GINT2_EXTI_IRQn EXTI2_IRQn
-#define GINT3_Pin LL_GPIO_PIN_3
+#define GINT3_Pin GPIO_PIN_3
 #define GINT3_GPIO_Port GPIOA
 #define GINT3_EXTI_IRQn EXTI3_IRQn
-#define SPI1_CS_Pin LL_GPIO_PIN_4
+#define SPI1_CS_Pin GPIO_PIN_4
 #define SPI1_CS_GPIO_Port GPIOA
-#define SPI1_SCK_Pin LL_GPIO_PIN_5
+#define SPI1_SCK_Pin GPIO_PIN_5
 #define SPI1_SCK_GPIO_Port GPIOA
-#define SPI1_MOSI_Pin LL_GPIO_PIN_7
+#define SPI1_MOSI_Pin GPIO_PIN_7
 #define SPI1_MOSI_GPIO_Port GPIOA
-#define SPI1_RST_Pin LL_GPIO_PIN_0
+#define SPI1_RST_Pin GPIO_PIN_0
 #define SPI1_RST_GPIO_Port GPIOB
-#define BSET_Pin LL_GPIO_PIN_4
+#define BSET_Pin GPIO_PIN_4
 #define BSET_GPIO_Port GPIOB
-#define BRSET_Pin LL_GPIO_PIN_5
+#define BRSET_Pin GPIO_PIN_5
 #define BRSET_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 

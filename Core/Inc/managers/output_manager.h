@@ -13,8 +13,11 @@
 
 void init_outputs();
 void send_report();
-void clear_screen();
+void display_power_off();
+void display_power_on();
 void beep();
+void SendMessage(char *);
+void uart_transmition_handler();
 void draw_update();
 void update_request();
 void draw_logo();
@@ -23,6 +26,5 @@ void draw_statusbar(const char**, bool*, uint32_t);
 void draw_graph();
 void draw_menu();
 void draw_bat_low();
-void battery_request(bool value);
 
 #endif /* INC_OUTPUT_MANAGER_H_ */

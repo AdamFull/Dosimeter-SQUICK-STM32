@@ -13,6 +13,7 @@
 #include "libs/LCD_1202.h"
 #include "libs/w25qxx.h"
 #include "configuration.h"
+#include "stm32f1xx_ll_exti.h"
 
 NVRAM DevNVRAM;
 geiger_work GWORK;
@@ -30,6 +31,13 @@ uint8_t current_minutes = 0;
 uint8_t current_seconds = 0;
 unsigned long my_ticker = 0;
 
+extern RTC_HandleTypeDef hrtc;
+extern bool screen_saver_state;
+RTC_TimeTypeDef current_time;
+RTC_DateTypeDef current_date;
+
+uint32_t awake_time;
+
 /*****************************************************************************************************************/
 void voltage_required(){
 	GWORK.voltage_req = DevNVRAM.GSETTING.GEIGER_VOLTAGE*HV_MULTIPLIER;
@@ -40,7 +48,6 @@ void Initialize_variables(){
 
 	GWORK.voltage_req = 0;
 	GWORK.time_min_old = 0;
-	GWORK.stat_time = 0;
 	GWORK.time_min = 1;
 	GWORK.time_sec = 0;
 	GWORK.sum_old = 0;
@@ -80,6 +87,7 @@ void Initialize_variables(){
 	GFLAGS.is_flash_initialized = false;
 	GFLAGS.is_particle_mode = false;
 	GFLAGS.calculate_dose = true;
+	GFLAGS.is_sleep_mode;
 
 	GUI.counter = 0;
 	GUI.cursor = 0;
@@ -188,14 +196,13 @@ void Initialize_data(){
 
 /*****************************************************************************************************************/
 void Update_rad_buffer(){
+	GFLAGS.log_mutex = true;
 	if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 3) GWORK.real_geigertime = DevNVRAM.GSETTING.GEIGER_TIME/2;
 	else GWORK.real_geigertime = DevNVRAM.GSETTING.GEIGER_TIME;
-	free(GWORK.rad_buff);
-	GWORK.rad_buff = (uint16_t*)calloc(GWORK.real_geigertime, sizeof(uint16_t));
-	free(GWORK.stat_buff);
-	GWORK.stat_buff = (uint32_t*)calloc(GWORK.real_geigertime, sizeof(uint32_t));
+	for(uint32_t i = 0; i < MAXIMUM_RAD_BUFEER_LEN; i++) GWORK.rad_buff[i] = 0;
+	for(uint32_t i = 0; i < MEAN_MEAS_TIME; i++) GWORK.stat_buff[i] = 0;
 
-	if(GWORK.rad_buff != NULL && GWORK.stat_buff != NULL){
+	if(GWORK.rad_buff != NULL){
 		GWORK.rad_back = GWORK.rad_max = 0;
 		GWORK.rad_dose = GWORK.rad_dose_old;
 		GWORK.time_sec = GWORK.time_min = 0;
@@ -204,6 +211,7 @@ void Update_rad_buffer(){
 	}else{
 		device_status = HEAP_INIT_ERROR;
 	}
+	GFLAGS.log_mutex = false;
 }
 
 /*****************************************************************************************************************/
@@ -273,7 +281,7 @@ bool Read_configuration(){
 		DevNVRAM.GSETTING.LCD_CONTRAST = 15;
 		DevNVRAM.GSETTING.LCD_BACKLIGHT = 1;
 		DevNVRAM.GSETTING.BUZZER_TONE = 1;
-		DevNVRAM.GSETTING.ACTIVE_COUNTERS = 2;
+		DevNVRAM.GSETTING.ACTIVE_COUNTERS = 1;
 		DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL = 10;
 		DevNVRAM.GSETTING.ALARM_THRESHOLD = 100;
 		DevNVRAM.GSETTING.rad_sum = 0;
@@ -359,7 +367,7 @@ void Erase_memory(){
 /********************************************Reset activity test data*********************************************/
 /*****************************************************************************************************************/
 void Reset_activity_test(){
-	memset(GWORK.rad_buff, 0, GWORK.real_geigertime);
+	for(uint32_t i = 0; i < MAXIMUM_RAD_BUFEER_LEN; i++) GWORK.rad_buff[i] = 0;
 	GFLAGS.is_mean_mode = false;
 	GFLAGS.is_particle_mode = false;
 	GFLAGS.is_particle_per_sec_mode = false;
@@ -381,11 +389,11 @@ void Reset_activity_test(){
 /*****************************************************************************************************************/
 void Calculate_std(){
 	uint64_t _sum = 0;
-	for(unsigned i = 0; i < GWORK.real_geigertime; i++) _sum+=GWORK.stat_buff[i];
-	GMEANING.mean = (float)_sum/GWORK.real_geigertime;
+	for(unsigned i = 0; i < MEAN_MEAS_TIME; i++) _sum+=GWORK.stat_buff[i];
+	GMEANING.mean = (float)_sum/MEAN_MEAS_TIME;
 	_sum = 0;
-	for(unsigned i = 0; i < GWORK.real_geigertime; i++) _sum+=pow(GWORK.stat_buff[i] - GMEANING.mean, 2);
-	GMEANING.std = (float)_sum/(float)(GWORK.real_geigertime-1);
+	for(unsigned i = 0; i < MEAN_MEAS_TIME; i++) _sum+=pow(GWORK.stat_buff[i] - GMEANING.mean, 2);
+	GMEANING.std = (float)_sum/(float)(MEAN_MEAS_TIME-1);
 }
 
 /*****************************************************************************************************************/
@@ -411,7 +419,11 @@ void activity_test_timer_ticker(){
 
 /*****************************************************************************************************************/
 void geiger_counter_ticker(){
-	if(current_hour<99) {
+	HAL_RTC_GetTime(&hrtc, &current_time, RTC_FORMAT_BIN);
+	current_hour = current_time.Hours;
+	current_minutes = current_time.Minutes;
+	current_seconds = current_time.Seconds;
+	/*if(current_hour<99) {
 		if(++current_seconds>59){
 			if(++current_minutes>59){
 				if(++current_hour>99) current_hour=99; //часы
@@ -419,5 +431,70 @@ void geiger_counter_ticker(){
 			}
 			current_seconds=0;
 		}
+	}*/
+}
+
+/*****************************************************************************************************************/
+void sleep(){
+	RTC_AlarmTypeDef sAlarm;
+	geiger_counter_ticker();
+	sAlarm.AlarmTime.Hours = current_hour+1;
+	sAlarm.AlarmTime.Minutes = current_minutes;
+	sAlarm.AlarmTime.Seconds = current_seconds+10;
+	sAlarm.Alarm = RTC_ALARM_A;
+	if(HAL_RTC_SetAlarm_IT(&hrtc, &sAlarm, RTC_FORMAT_BIN) == HAL_OK){
+		screen_saver_state = true;
+		display_power_off();
+		pwm_backlight(0);
+		GFLAGS.log_mutex = true;
+		awake_time = 30;
+
+		HAL_SuspendTick();
+		HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
+		HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
+		HAL_ResumeTick();
+		display_power_on();
+		GFLAGS.log_mutex = false;
+		screen_saver_state = false;
 	}
+}
+
+void sleep_ticker(){
+	if(--awake_time < 1){
+		sleep();
+	}
+}
+
+/*****************************************************************************************************************/
+void update_selected_counter(){
+	switch(DevNVRAM.GSETTING.ACTIVE_COUNTERS){
+		case 0:
+			LL_EXTI_DisableIT_0_31(LL_EXTI_LINE_1);
+			LL_EXTI_DisableIT_0_31(LL_EXTI_LINE_2);
+			LL_EXTI_EnableIT_0_31(LL_EXTI_LINE_3);
+			break;
+		case 1:
+			LL_EXTI_EnableIT_0_31(LL_EXTI_LINE_1);
+			LL_EXTI_DisableIT_0_31(LL_EXTI_LINE_2);
+			LL_EXTI_DisableIT_0_31(LL_EXTI_LINE_3);
+			break;
+		case 2:
+			LL_EXTI_DisableIT_0_31(LL_EXTI_LINE_1);
+			LL_EXTI_EnableIT_0_31(LL_EXTI_LINE_2);
+			LL_EXTI_DisableIT_0_31(LL_EXTI_LINE_3);
+			break;
+		case 3:
+			LL_EXTI_EnableIT_0_31(LL_EXTI_LINE_1);
+			LL_EXTI_EnableIT_0_31(LL_EXTI_LINE_2);
+			LL_EXTI_DisableIT_0_31(LL_EXTI_LINE_3);
+			break;
+	}
+}
+
+
+void interrupts_handler(){
+	if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
+	if(GFLAGS.calculate_dose)if(++DevNVRAM.GSETTING.rad_sum>MAX_PARTICLES*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=MAX_PARTICLES*3600/GWORK.real_geigertime; //общая сумма импульсов
+	if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
+	if(GMODE.counter_mode == 1) GWORK.rad_back++;
 }

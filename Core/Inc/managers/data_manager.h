@@ -11,6 +11,7 @@
 #include "stdbool.h"
 #include "stdint.h"
 #include "stm32f1xx.h"
+#include "configuration.h"
 
 #define FLASH_START_ADDR ((uint32_t)0x08000000)
 #define RAM_START_ADDR ((uint32_t)0x20000000)
@@ -53,7 +54,6 @@ typedef union {
 typedef struct {
 	uint32_t voltage_req;
 	uint8_t time_min_old;
-	volatile uint8_t stat_time;
 	volatile uint8_t time_min, time_sec;
 	volatile uint16_t sum_old;
 
@@ -67,8 +67,8 @@ typedef struct {
 
 	unsigned long alarm_timer;
 
-	uint16_t *rad_buff;
-	uint32_t *stat_buff;		//Buffer for contain current stat values
+	uint16_t rad_buff[MAXIMUM_RAD_BUFEER_LEN];
+	uint32_t stat_buff[MEAN_MEAS_TIME];
 } geiger_work;
 
 typedef struct {
@@ -115,6 +115,7 @@ typedef struct {
 	bool is_monitor_enabled;
 	bool is_flash_initialized;
 	bool calculate_dose;
+	bool is_sleep_mode;
 
 	bool is_particle_mode;
 	bool is_mean_mode;
@@ -165,5 +166,8 @@ void Reset_activity_test();
 volatile void Calculate_std();
 void activity_test_timer_ticker();
 void geiger_counter_ticker();
+void sleep();
+void update_selected_counter();
+void interrupts_handler();
 
 #endif /* INC_DATA_MANAGER_H_ */

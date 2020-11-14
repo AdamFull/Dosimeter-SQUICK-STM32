@@ -37,6 +37,9 @@ extern uint8_t current_minutes;
 unsigned long beep_timer = 0;
 LCD_CONFIG lcd_config_g;
 
+uint8_t strbuffer[64] = {0};
+char rx_buffer[32];
+
 void draw_simple_menu_page(const char**, uint32_t);
 void draw_editable_menu_page(const char**, int16_t*, char*, uint32_t);
 void draw_checkbox_menu_page(const char**, bool*, bool*, uint32_t);
@@ -78,9 +81,14 @@ int getNumOfDigits(uint32_t number){
 }
 
 /*****************************************************************************************************************/
-void clear_screen(){
+void display_power_off(){
 	LCD_Clear();
 	LCD_Update();
+	LCD_PowerOn(false);
+}
+
+void display_power_on(){
+	LCD_PowerOn(true);
 }
 
 /*****************************************************************************************************************/
@@ -90,14 +98,62 @@ void beep() { //индикация каждой частички звуком с
             beep_timer = GetTick();
             if(GFLAGS.is_detected){
             	pwm_tone(150);
-                LL_GPIO_SetOutputPin(GPIOC, LL_GPIO_PIN_13);
+                //LL_GPIO_SetOutputPin(GPIOC, LL_GPIO_PIN_13);
             }else{
             	pwm_tone(0);
-                LL_GPIO_ResetOutputPin(GPIOC, LL_GPIO_PIN_13);
+                //LL_GPIO_ResetOutputPin(GPIOC, LL_GPIO_PIN_13);
             }
             GFLAGS.is_detected = false;
         }
     }
+}
+
+/*****************************************************************************************************************/
+void SendMessage(char *message){
+	CDC_Transmit_FS(message, strlen(message));
+}
+
+/*****************************************************************************************************************/
+void uart_transmition_handler(){
+	if(strlen(rx_buffer) > 0) {																//If cbc received string, check what is it
+		if(strcmp(rx_buffer, "rdlog") == 0 && !GFLAGS.log_mutex){						//If it was rdlog, start transmit log from flash
+			GFLAGS.log_mutex = true;
+			GFLAGS.is_monitor_enabled = false;
+			uint32_t l_Address = 0x00001000;
+			uint32_t l_Index = 0;
+			char to_append = '\0';
+			sprintf(strbuffer, "%d\n", DevNVRAM.GSETTING.w25qxx_address - l_Address);
+			strncat(strbuffer, &to_append, sizeof(char));
+			CDC_Transmit_FS(strbuffer, strlen(strbuffer));
+			LL_mDelay(100);
+			while(l_Address < DevNVRAM.GSETTING.w25qxx_address){
+				l_Index = 0;
+				memset(strbuffer, 0, sizeof(strbuffer));
+				while(strbuffer[abs(l_Index-1)] != '\n'){
+					W25qxx_ReadByte(&strbuffer[l_Index], l_Address);
+					l_Address++; l_Index++;
+				}
+				strncat(strbuffer, &to_append, sizeof(char));
+				if(strbuffer != NULL) CDC_Transmit_FS(strbuffer, strlen(strbuffer));
+				LL_mDelay(TRANSMITION_DELAY);
+			}
+			LL_mDelay(TRANSMITION_DELAY);
+			SendMessage("done\r\n");
+			Clear_memory();
+			GFLAGS.log_mutex = false;
+			}else if(strcmp(rx_buffer, "clmem\n") == 0){											//If received clmem, start cleaning flash
+				SendMessage("Erasing chip.\r\n");
+				Erase_memory();
+				SendMessage("done\0");
+				LL_mDelay(TRANSMITION_DELAY);
+				SendMessage("Please reconnect device to computer.\r\n");
+			}else if(strcmp(rx_buffer, "monitor\n") == 0){										//If received monitor, let's enable work log transfer
+				GFLAGS.is_monitor_enabled = !GFLAGS.is_monitor_enabled;
+			}else if(strcmp(rx_buffer, "rdcfg\n") == 0){
+				//Read settings
+			}
+		memset(rx_buffer, 0, sizeof(rx_buffer));
+	}
 }
 
 /*****************************************************************************************************************/
@@ -146,7 +202,7 @@ void draw_main(){
 	if(!GFLAGS.is_charging && !show_battery){
 		if(!GFLAGS.is_charging){
 			LCD_DrawBitmap(LCD_X_SIZE-11, 1, battery_bitmap, 10, 8, COLOR_BLACK);
-			LCD_FillRect(LCD_X_SIZE-10, 3, coeff, 4, COLOR_BLACK);
+			if(GMEANING.current_battery_voltage >= BAT_ADC_MIN) LCD_FillRect(LCD_X_SIZE-10, 3, coeff, 4, COLOR_BLACK);
 		}else{
 			LCD_DrawBitmap(LCD_X_SIZE-11, 1, charge_bitmap, 10, 8, COLOR_BLACK);
 		}
@@ -188,6 +244,7 @@ void draw_main(){
 				if(GWORK.rad_back > 1000) LCD_write((float)GWORK.rad_back/1000, true);
 				else if(GWORK.rad_back > 1000000) LCD_write((float)GWORK.rad_back/1000000, true);
 				else LCD_write(GWORK.rad_back, false);
+				//4.01+3
 
 				LCD_SetCharSize(0);
 				LCD_AddToCursor(0, 3);
@@ -385,29 +442,28 @@ void draw_menu(){
 	        case 8:{
 	        	uint8_t ext_mem = map((w25qxx.CapacityInKiloByte*1024) - DevNVRAM.GSETTING.w25qxx_address, 0, (w25qxx.CapacityInKiloByte*1024), 0, 100);
 	        	LCD_print("Ext mem free:");
-	        	LCD_SetCursor(LCD_X_SIZE - (getNumOfDigits(ext_mem)+1)*5, 10);
+	        	LCD_SetCursor(LCD_X_SIZE - (getNumOfDigits(ext_mem)+1)*5, 9);
 	        	LCD_write(ext_mem, false);
 	        	LCD_JustDrawChar('%');
-	        	LCD_SetCursor(0, 20);
+	        	LCD_SetCursor(0, 18);
 	        	LCD_print("Device ram free:");
 	        	ext_mem = map(GetRamFree(), 0, 20*1024, 0, 100);
-	        	LCD_SetCursor(LCD_X_SIZE - (getNumOfDigits(ext_mem)+1)*5, 20);
+	        	LCD_SetCursor(LCD_X_SIZE - (getNumOfDigits(ext_mem)+1)*5, 18);
 	        	LCD_write(ext_mem, false);
 	        	LCD_JustDrawChar('%');
-	        	LCD_SetCursor(0, 30);
+	        	LCD_SetCursor(0, 27);
 	        	LCD_print("Device rom free:");
 	        	ext_mem = map(GetRomFree(), 0, 64*1024, 0, 100);
-	        	LCD_SetCursor(LCD_X_SIZE - (getNumOfDigits(ext_mem)+1)*5, 30);
+	        	LCD_SetCursor(LCD_X_SIZE - (getNumOfDigits(ext_mem)+1)*5, 27);
 	        	LCD_write(ext_mem, false);
 	        	LCD_JustDrawChar('%');
-	        	LCD_SetCursor(0, 40);
-	        	LCD_print("MPU: STM32F103");
-	        	LCD_SetCursor(0, 50);
+	        	LCD_SetCursor(0, 36);
+	        	LCD_print("Build date: ");
+	        	LCD_SetCursor(0, 45);
+	        	LCD_print(__DATE__);
+	        	LCD_SetCursor(0, 54);
 	        	LCD_print("Session:");
 	        	LCD_write(DevNVRAM.GSETTING.session_number, false);
-	        	LCD_SetCursor(0, 60);
-	        	LCD_print("Author: AdamFull");
-	        	LCD_SetCursor(0, 70);
 	        }break;
 	    }
 	    LCD_Update();

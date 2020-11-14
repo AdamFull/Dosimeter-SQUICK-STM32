@@ -30,6 +30,10 @@
 
 /************************SETTINGS***********************/
 
+#define MEAN_MEAS_TIME 32
+
+#define MAXIMUM_RAD_BUFEER_LEN 450
+
 #define TRANSMITION_DELAY 10
 
 #define LCD_X_SIZE 96
@@ -67,9 +71,9 @@
 
 #define BACKLIGHT_INTENSITY BACKLIGHT_NORMAL
 
-//Battery minimum and maximum values (min = 3.6v, max = 4.2v)
-#define BAT_ADC_MIN 2234
-#define BAT_ADC_MAX 2606
+//Battery minimum and maximum values (min = 3.3v, max = 4.2v)
+#define BAT_ADC_MIN 2048
+#define BAT_ADC_MAX 2590
 
 //Select bluetooth
 #define BLUETOOTH_SUPPORT

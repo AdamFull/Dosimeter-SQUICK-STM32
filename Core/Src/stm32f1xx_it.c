@@ -77,6 +77,7 @@ extern USBD_CDC_ItfTypeDef USBD_Interface_fops_FS;
 
 /* External variables --------------------------------------------------------*/
 extern PCD_HandleTypeDef hpcd_USB_FS;
+extern RTC_HandleTypeDef hrtc;
 /* USER CODE BEGIN EV */
 /* USER CODE END EV */
 
@@ -217,24 +218,28 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /**
+  * @brief This function handles RTC global interrupt.
+  */
+void RTC_IRQHandler(void)
+{
+  /* USER CODE BEGIN RTC_IRQn 0 */
+
+  /* USER CODE END RTC_IRQn 0 */
+  HAL_RTCEx_RTCIRQHandler(&hrtc);
+  /* USER CODE BEGIN RTC_IRQn 1 */
+
+  /* USER CODE END RTC_IRQn 1 */
+}
+
+/**
   * @brief This function handles EXTI line1 interrupt.
   */
 void EXTI1_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI1_IRQn 0 */
+
   /* USER CODE END EXTI1_IRQn 0 */
-  if (LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_1) != RESET)
-  {
-    LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_1);
-    /* USER CODE BEGIN LL_EXTI_LINE_1 */
-    if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 1 || DevNVRAM.GSETTING.ACTIVE_COUNTERS == 3){
-    	if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-    	if(GFLAGS.calculate_dose)if(++DevNVRAM.GSETTING.rad_sum>MAX_PARTICLES*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=MAX_PARTICLES*3600/GWORK.real_geigertime; //общая сумма импульсов
-    	if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
-    	if(GMODE.counter_mode == 1) GWORK.rad_back++;
-    }
-    /* USER CODE END LL_EXTI_LINE_1 */
-  }
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1);
   /* USER CODE BEGIN EXTI1_IRQn 1 */
 
   /* USER CODE END EXTI1_IRQn 1 */
@@ -246,19 +251,9 @@ void EXTI1_IRQHandler(void)
 void EXTI2_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI2_IRQn 0 */
+
   /* USER CODE END EXTI2_IRQn 0 */
-  if (LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_2) != RESET)
-  {
-    LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_2);
-    /* USER CODE BEGIN LL_EXTI_LINE_2 */
-    if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 2 || DevNVRAM.GSETTING.ACTIVE_COUNTERS == 3){
-    	if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-    	if(GFLAGS.calculate_dose)if(++DevNVRAM.GSETTING.rad_sum>MAX_PARTICLES*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=MAX_PARTICLES*3600/GWORK.real_geigertime; //общая сумма импульсов
-    	if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
-    	if(GMODE.counter_mode == 1) GWORK.rad_back++;
-    }
-    /* USER CODE END LL_EXTI_LINE_2 */
-  }
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_2);
   /* USER CODE BEGIN EXTI2_IRQn 1 */
 
   /* USER CODE END EXTI2_IRQn 1 */
@@ -270,20 +265,8 @@ void EXTI2_IRQHandler(void)
 void EXTI3_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI3_IRQn 0 */
-	if(DevNVRAM.GSETTING.ACTIVE_COUNTERS == 0){
-	    if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;
-	    if(GFLAGS.calculate_dose)if(++DevNVRAM.GSETTING.rad_sum>MAX_PARTICLES*3600/GWORK.real_geigertime) DevNVRAM.GSETTING.rad_sum=MAX_PARTICLES*3600/GWORK.real_geigertime; //общая сумма импульсов
-	    if(GUI.page == 1 && !GFLAGS.do_alarm){ GFLAGS.is_detected = true; }
-	    if(GMODE.counter_mode == 1) GWORK.rad_back++;
-	}
   /* USER CODE END EXTI3_IRQn 0 */
-  if (LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_3) != RESET)
-  {
-    LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_3);
-    /* USER CODE BEGIN LL_EXTI_LINE_3 */
-
-    /* USER CODE END LL_EXTI_LINE_3 */
-  }
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_3);
   /* USER CODE BEGIN EXTI3_IRQn 1 */
 
   /* USER CODE END EXTI3_IRQn 1 */
@@ -333,43 +316,46 @@ void TIM1_UP_IRQHandler(void)
 		  LL_TIM_ClearFlag_UPDATE(TIM1);
 	  }
 
+if(!GFLAGS.log_mutex){
 	uint64_t tmp_buff=0;
-
 	geiger_counter_ticker();
-	if(GMODE.counter_mode == 1) activity_test_timer_ticker();
+		if(GMODE.counter_mode == 1) activity_test_timer_ticker();
 
-	for(uint8_t i=0; i<GWORK.real_geigertime; i++) tmp_buff+=GWORK.rad_buff[i]; //расчет фона мкР/ч
-	if(tmp_buff>MAX_PARTICLES) tmp_buff=MAX_PARTICLES; //переполнение
-	GWORK.rad_back_old = GWORK.rad_back;
+		for(uint16_t i=0; i<GWORK.real_geigertime; i++) tmp_buff+=GWORK.rad_buff[i]; //расчет фона мкР/ч
+		if(tmp_buff>MAX_PARTICLES) tmp_buff=MAX_PARTICLES; //переполнение
+		GWORK.rad_back_old = GWORK.rad_back;
 
-	if(GMODE.counter_mode == 0){
-		if(GFLAGS.is_particle_mode) GWORK.rad_back=tmp_buff/DevNVRAM.GSETTING.sensor_area;
-		else if(GFLAGS.is_particle_per_sec_mode) GWORK.rad_back=GWORK.rad_buff[0];
-		else GWORK.rad_back=tmp_buff;
-	}
+		if(GMODE.counter_mode == 0){
+			if(GFLAGS.is_particle_mode) GWORK.rad_back=tmp_buff/DevNVRAM.GSETTING.sensor_area;
+			else if(GFLAGS.is_particle_per_sec_mode) GWORK.rad_back=GWORK.rad_buff[0];
+			else GWORK.rad_back=tmp_buff;
+		}
 
-	if(!GFLAGS.is_particle_mode) GWORK.stat_buff[GWORK.stat_time] = GWORK.rad_back; //Записываю текущее значение мкр/ч для расчёта погрешности
+		if(!GFLAGS.is_particle_mode) GWORK.stat_buff[0] = GWORK.rad_back; //Записываю текущее значение мкр/ч для расчёта погрешности
 
-	Calculate_std(); //- crashing
+		Calculate_std(); //- crashing
 
-	if(GWORK.rad_back>GWORK.rad_max) GWORK.rad_max=GWORK.rad_back;
+		if(GWORK.rad_back>GWORK.rad_max) GWORK.rad_max=GWORK.rad_back;
 
-	for(uint8_t k=GWORK.real_geigertime-1; k>0; k--) GWORK.rad_buff[k]=GWORK.rad_buff[k-1]; //перезапись массива
+		for(uint16_t k=GWORK.real_geigertime-1; k>0; k--) GWORK.rad_buff[k]=GWORK.rad_buff[k-1]; //перезапись массива
 
-	GWORK.rad_buff[0]=0; //сбрасываем счетчик импульсов
+		GWORK.rad_buff[0]=0; //сбрасываем счетчик импульсов
 
-	if(GWORK.stat_time > GWORK.real_geigertime) GWORK.stat_time = 0; //Счётчик для расчёта статистической погрешности
-	else GWORK.stat_time++;
+	  for(uint16_t k=MEAN_MEAS_TIME-1; k>0; k--) GWORK.stat_buff[k]=GWORK.stat_buff[k-1];
+	  GWORK.stat_buff[0]=0;
 
-	GWORK.rad_dose=(DevNVRAM.GSETTING.rad_sum*GWORK.real_geigertime/3600); //расчитаем дозу
+		GWORK.rad_dose=(DevNVRAM.GSETTING.rad_sum*GWORK.real_geigertime/3600); //расчитаем дозу
 
-	GUI.mass[GUI.x_p]=map(GWORK.rad_back, 0, GWORK.rad_max < 40 ? 40 : GWORK.rad_max, 0, 19);
-	//for(uint8_t i=0;i<96;i++) GUI.mass[i]=GUI.mass[i] * sqrt(GWORK.rad_back/GWORK.rad_max);
-	if(GUI.x_p<95)GUI.x_p++;
-	if(GUI.x_p==95){
-		for(uint8_t i=0;i<LCD_X_SIZE-1;i++)GUI.mass[i]=GUI.mass[i+1];
-	}
-	if(GWORK.rad_max > 1) GWORK.rad_max--;		//Потихоньку сбрасываем максиму
+		GUI.mass[GUI.x_p]=map(GWORK.rad_back, 0, GWORK.rad_max < 40 ? 40 : GWORK.rad_max, 0, 19);
+		//for(uint8_t i=0;i<96;i++) GUI.mass[i]=GUI.mass[i] * sqrt(GWORK.rad_back/GWORK.rad_max);
+		if(GUI.x_p<95)GUI.x_p++;
+		if(GUI.x_p==95){
+			for(uint8_t i=0;i<LCD_X_SIZE-1;i++)GUI.mass[i]=GUI.mass[i+1];
+		}
+		if(GWORK.rad_max > 1) GWORK.rad_max--;		//Потихоньку сбрасываем максиму
+}
+
+
 	send_report();
   /* USER CODE END TIM1_UP_IRQn 0 */
   /* USER CODE BEGIN TIM1_UP_IRQn 1 */
@@ -401,6 +387,20 @@ void SPI2_IRQHandler(void)
   /* USER CODE BEGIN SPI2_IRQn 1 */
 
   /* USER CODE END SPI2_IRQn 1 */
+}
+
+/**
+  * @brief This function handles RTC alarm interrupt through EXTI line 17.
+  */
+void RTC_Alarm_IRQHandler(void)
+{
+  /* USER CODE BEGIN RTC_Alarm_IRQn 0 */
+
+  /* USER CODE END RTC_Alarm_IRQn 0 */
+  HAL_RTC_AlarmIRQHandler(&hrtc);
+  /* USER CODE BEGIN RTC_Alarm_IRQn 1 */
+
+  /* USER CODE END RTC_Alarm_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */

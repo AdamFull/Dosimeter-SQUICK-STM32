@@ -4,18 +4,18 @@
 #include "string.h"
 #include "util.h"
 
-uint8_t _LCD_RAM[LCD_X*LCD_String]; // Память нашего LCD
+uint16_t _LCD_RAM[LCD_X*LCD_String]; // Память нашего LCD
 
 static LCD_CONFIG lcd_config;
 
-uint8_t textsize = 1, textcolor = 1, textbgcolor = 0;
-uint8_t cursor_x = 0, cursor_y = 0;
+uint16_t textsize = 1, textcolor = 1, textbgcolor = 0;
+uint16_t cursor_x = 0, cursor_y = 0;
 
-uint8_t getCommand(uint8_t cmd, uint8_t arg, uint8_t mask){
+uint16_t getCommand(uint16_t cmd, uint16_t arg, uint16_t mask){
 	return (cmd | (arg & mask));
 }
 
-uint8_t getComCmd(uint8_t arg, uint8_t mask){
+uint16_t getComCmd(uint16_t arg, uint16_t mask){
 	return (arg & mask);
 }
 
@@ -25,7 +25,7 @@ const char *toString(uint32_t value, uint16_t size){
 }
 
 // Отправляем байт данных дисплею
-void LCD_SendByte(uint8_t mode, uint8_t c)
+void LCD_SendByte(uint16_t mode, uint16_t c)
 {
   // Опускаем ножку CS для дисплея
 	//LL_GPIO_ResetOutputPin(GPIOx, PinMask);
@@ -41,7 +41,7 @@ void LCD_SendByte(uint8_t mode, uint8_t c)
 	// Проталкиваем тактовым импульсом
 	LL_GPIO_SetOutputPin(lcd_config.SCKPORT, lcd_config.SCKPIN);
 	// В цикле передаем остальные биты
-	for(uint8_t i=0; i<8; i++) {
+	for(uint16_t i=0; i<8; i++) {
     // Сбрасываем тактовую ножку
 		LL_GPIO_ResetOutputPin(lcd_config.SCKPORT, lcd_config.SCKPIN);
     // Выставляем бит данных
@@ -68,18 +68,18 @@ void LCD_Clear(void) {
 
 // Обновляем данные на экране
 void LCD_Update(void) {
-  for(uint8_t p = 0; p < 9; p++) {
+  for(uint16_t p = 0; p < 9; p++) {
     LCD_SendByte(LCD_C, SetYAddr | p);
     LCD_SendByte(LCD_C, SetXAddr4);
     LCD_SendByte(LCD_C, SetXAddr3);
-    for(uint8_t col=0; col < LCD_X; col++){
+    for(uint16_t col=0; col < LCD_X; col++){
       LCD_SendByte(LCD_D, _LCD_RAM[(LCD_X * p) + col]);
     }
   }
 }
 
 // Рисование пикселя по координатам и цвету
-void LCD_DrawPixel (uint8_t x, uint8_t y, uint8_t color) {
+void LCD_DrawPixel (uint16_t x, uint16_t y, uint16_t color) {
   if ((x < 0) || (x >= LCD_X) || (y < 0) || (y >= LCD_Y)) return;
 
   if (color) _LCD_RAM[x+ (y/8)*LCD_X] |= 1<<(y%8);
@@ -87,7 +87,7 @@ void LCD_DrawPixel (uint8_t x, uint8_t y, uint8_t color) {
 }
 
 // Рисование линии
-void LCD_DrawLine(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, uint8_t color) {
+void LCD_DrawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint16_t color) {
   int steep = abs(y1 - y0) > abs(x1 - x0);
   if (steep) {
     swap(x0, y0);
@@ -116,17 +116,17 @@ void LCD_DrawLine(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, uint8_t color)
 }
 
 // Рисование вертикальной линии
-void LCD_DrawFastVLine(uint8_t x, uint8_t y, uint8_t h, uint8_t color) {
+void LCD_DrawFastVLine(uint16_t x, uint16_t y, uint16_t h, uint16_t color) {
   LCD_DrawLine(x, y, x, y+h-1, color);
 }
 
 // Рисование горизонтальной линии
-void LCD_DrawFastHLine(uint8_t x, uint8_t y, uint8_t w, uint8_t color) {
+void LCD_DrawFastHLine(uint16_t x, uint16_t y, uint16_t w, uint16_t color) {
   LCD_DrawLine(x, y, x+w-1, y, color);
 }
 
 // Рисование прямоугольника
-void LCD_DrawRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t color) {
+void LCD_DrawRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color) {
   LCD_DrawFastHLine(x, y, w, color);
   LCD_DrawFastHLine(x, y+h-1, w, color);
   LCD_DrawFastVLine(x, y, h, color);
@@ -134,14 +134,14 @@ void LCD_DrawRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t color) {
 }
 
 // Рисование залитый прямоугольник
-void LCD_FillRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t color) {
+void LCD_FillRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color) {
   for (int16_t i=x; i<x+w; i++) {
     LCD_DrawFastVLine(i, y, h, color);
   }
 }
 
 // Заливка экрана
-void LCD_FillScreen(uint8_t color) {
+void LCD_FillScreen(uint16_t color) {
   LCD_FillRect(0, 0, LCD_X, LCD_Y, color);
 }
 
@@ -151,19 +151,19 @@ void LCD_JustDrawChar(unsigned char c){
 }
 
 // Нарисовать букву
-void LCD_DrawChar(uint8_t x, uint8_t y, uint8_t color, uint8_t bg, uint8_t size, unsigned char c) {
+void LCD_DrawChar(uint16_t x, uint16_t y, uint16_t color, uint16_t bg, uint16_t size, unsigned char c) {
 	if((x >= LCD_X) ||(y >= LCD_Y) || ((x + 4) < 0) || ((y + 7) < 0)) return;
 	if(c<128)            c = c-32;
 	if(c>=144 && c<=175) c = c-48;
 	if(c>=128 && c<=143) c = c+16;
 	if(c>=176 && c<=191) c = c-48;
 	if(c>191)  return;
-	for (uint8_t i=0; i<6; i++ ) {
-		uint8_t line;
+	for (uint16_t i=0; i<6; i++ ) {
+		uint16_t line;
 		if (i == 5) {line = 0x00;}
 		else {
 			line = font[(c*5)+i];
-			for (uint8_t j = 0; j<8; j++)
+			for (uint16_t j = 0; j<8; j++)
 			{
 				if (line & 0x01) {
 					if(size == 1){
@@ -209,7 +209,7 @@ void LCD_write(float num, bool as_float){
 }
 
 // Вывод картинки
-void LCD_DrawBitmap(uint8_t x, uint8_t y, const char *bitmap, uint8_t w, uint8_t h, uint8_t color) {
+void LCD_DrawBitmap(uint16_t x, uint16_t y, const char *bitmap, uint16_t w, uint16_t h, uint16_t color) {
   for (int16_t j=0; j<h; j++) {
     for (int16_t i=0; i<w; i++ ) {
       if (bitmap[i + (j/8)*w] & 1<<(j%8)) { LCD_DrawPixel(x+i, y+j, color); }
@@ -217,13 +217,18 @@ void LCD_DrawBitmap(uint8_t x, uint8_t y, const char *bitmap, uint8_t w, uint8_t
   }
 }
 
-void LCD_SetContrast(uint8_t value){
+void LCD_SetContrast(uint16_t value){
 	if (value > 31)  value = 31;
 	LCD_SendByte(LCD_C, (STE2007_CMD_ELECTVOL | (value & STE2007_MASK_ELECTVOL)));
 }
 
-void LCD_SetPowerSave(bool value){
-	uint8_t power_byte = value ? 0x01 : 0x00;
+void LCD_PowerOn(bool state){
+	uint16_t power_byte = state ? 0x01 : 0x00;
+	LCD_SendByte(LCD_C, getCommand(STE2007_CMD_ONOFF, power_byte, STE2007_MASK_ONOFF));
+}
+
+void LCD_PowerSave(bool state){
+	uint16_t power_byte = state ? 0x01 : 0x00;
 	LCD_SendByte(LCD_C, getCommand(STE2007_CMD_DPYALLPTS, power_byte, STE2007_MASK_DPYALLPTS));
 }
 
@@ -232,31 +237,26 @@ void LCD_Flip(){
 	LCD_SendByte(LCD_C, getCommand(STE2007_CMD_COMDIR, 8, STE2007_MASK_COMDIR));
 }
 
-void LCD_SetPower(bool value){
-	uint8_t power_byte = value ? 0x00 : 0x01;
-	LCD_SendByte(LCD_C, getCommand(STE2007_CMD_ONOFF, power_byte, STE2007_MASK_ONOFF));
-}
-
 void LCD_SetInvert(bool value){
-	uint8_t invert_byte = value ? 0x01 : 0x00;
+	uint16_t invert_byte = value ? 0x01 : 0x00;
 	LCD_SendByte(LCD_C, getCommand(STE2007_CMD_DPYREV, invert_byte, STE2007_MASK_DPYREV));
 }
 
-void LCD_SetCharSize(uint8_t size){
+void LCD_SetCharSize(uint16_t size){
 	textsize = (size > 0) ? size : 1;
 }
 
-void LCD_SetTextColor(uint8_t c, uint8_t b){
+void LCD_SetTextColor(uint16_t c, uint16_t b){
 	textcolor   = c;
 	textbgcolor = b;
 }
 
-void LCD_SetCursor(uint8_t x, uint8_t y){
+void LCD_SetCursor(uint16_t x, uint16_t y){
 	cursor_x = x;
 	cursor_y = y;
 }
 
-void LCD_AddToCursor(uint8_t x, uint8_t y){
+void LCD_AddToCursor(uint16_t x, uint16_t y){
 	cursor_x += x;
 	cursor_y += y;
 }
