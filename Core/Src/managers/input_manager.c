@@ -42,7 +42,7 @@ void move_cursor(bool direction, bool editable, bool menu_mode){
 				switch (GUI.cursor){
 					case 0:{ if(GUI.editable < 450) GUI.editable++; } break;
 					case 1:{ if(GUI.editable < 40) GUI.editable+=5; } break;
-					case 2:{ if(GUI.editable < 500) GUI.editable+=10; } break;
+					case 2:{ if(GUI.editable < 500) GUI.editable+=5; } break;
 					case 3:{ if(GUI.editable < 50) GUI.editable++; } break;
 					case 4:{ if(GUI.editable < 3) GUI.editable++; } break;
 				}
@@ -64,7 +64,7 @@ void move_cursor(bool direction, bool editable, bool menu_mode){
 				switch (GUI.cursor){
 					case 0:{ if(GUI.editable > 5) GUI.editable--; } break;
 					case 1:{ if(GUI.editable > 5) GUI.editable-=5; } break;
-					case 2:{ if(GUI.editable > 100) GUI.editable-=10; } break;
+					case 2:{ if(GUI.editable > 100) GUI.editable-=5; } break;
 					case 3:{ if(GUI.editable > 1) GUI.editable--; } break;
 					case 4:{ if(GUI.editable > 0) GUI.editable--; } break;
 				}

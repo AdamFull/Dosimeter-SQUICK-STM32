@@ -144,6 +144,7 @@ bool Init_w25qxx(){
 			return false;
 		}
 	}
+	//W25qxx_EraseChip();
 	Read_configuration();
 	Write_configuration();
 	GFLAGS.is_flash_initialized = true;
