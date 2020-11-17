@@ -54,7 +54,7 @@
 #define PAGES 9
 
 //Time before screen will turn off
-#define SCREEN_SAVER_TIME 60000
+#define SCREEN_SAVER_TIME 30000
 
 #define MAX_PARTICLES 0xffffffffffffffffULL
 #define MAX_PARTICLES_PER_SEC

@@ -38,7 +38,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+void ADC_DMA_TransferComplete_Callback(void);
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -51,7 +51,6 @@
 
 
 volatile unsigned long ticks;
-extern uint16_t battery_adc_value, high_voltage_adc_value;
 extern bool screen_saver_state;
 
 extern geiger_flags GFLAGS;
@@ -273,23 +272,23 @@ void EXTI3_IRQHandler(void)
 }
 
 /**
-  * @brief This function handles ADC1 and ADC2 global interrupts.
+  * @brief This function handles DMA1 channel1 global interrupt.
   */
-void ADC1_2_IRQHandler(void)
+void DMA1_Channel1_IRQHandler(void)
 {
-  /* USER CODE BEGIN ADC1_2_IRQn 0 */
-	if(LL_ADC_IsActiveFlag_JEOS(ADC1) != 0) {
-	    LL_ADC_ClearFlag_JEOS(ADC1);
-	    battery_adc_value = LL_ADC_INJ_ReadConversionData12(ADC1, LL_ADC_INJ_RANK_1);
-	 }else if(LL_ADC_IsActiveFlag_JEOS(ADC2) != 0){
-		 LL_ADC_ClearFlag_JEOS(ADC2);
-		 high_voltage_adc_value = LL_ADC_INJ_ReadConversionData12(ADC2, LL_ADC_INJ_RANK_1);
-	 }
-  /* USER CODE END ADC1_2_IRQn 0 */
+  /* USER CODE BEGIN DMA1_Channel1_IRQn 0 */
+	if(LL_DMA_IsActiveFlag_TC1(DMA1) == 1){
+		ADC_DMA_TransferComplete_Callback();
+		LL_DMA_ClearFlag_TC1(DMA1);
+	}
+	if(LL_DMA_IsActiveFlag_TE1(DMA1) == 1){
+		LL_DMA_ClearFlag_TE1(DMA1);
+	}
+  /* USER CODE END DMA1_Channel1_IRQn 0 */
 
-  /* USER CODE BEGIN ADC1_2_IRQn 1 */
+  /* USER CODE BEGIN DMA1_Channel1_IRQn 1 */
 
-  /* USER CODE END ADC1_2_IRQn 1 */
+  /* USER CODE END DMA1_Channel1_IRQn 1 */
 }
 
 /**

@@ -9,6 +9,7 @@
 #include <managers/meaning_manager.h>
 #include "stdbool.h"
 #include "stm32f1xx_ll_adc.h"
+#include "stm32f1xx_ll_dma.h"
 
 #define BANK_SIZE 16
 
@@ -20,45 +21,47 @@ uint8_t avgFactor = 5;
 uint16_t batValue = 0;
 uint16_t hvValue = 0;
 
-uint16_t battery_adc_value, high_voltage_adc_value;
+__IO uint16_t adc_values[2] = {0};
+bool tc_flag;
+
+void ADC_DMA_TransferComplete_Callback(){
+	tc_flag = true;
+}
 
 
 void adc_init(){
-	uint16_t adc_calibration_index = 0;
+	LL_DMA_ConfigTransfer(DMA1,
+	                        LL_DMA_CHANNEL_1,
+	                        LL_DMA_DIRECTION_PERIPH_TO_MEMORY |
+	                        LL_DMA_MODE_CIRCULAR              |
+	                        LL_DMA_PERIPH_NOINCREMENT         |
+	                        LL_DMA_MEMORY_INCREMENT           |
+	                        LL_DMA_PDATAALIGN_HALFWORD        |
+	                        LL_DMA_MDATAALIGN_HALFWORD        |
+	                        LL_DMA_PRIORITY_HIGH               );
+	LL_DMA_ConfigAddresses(DMA1,
+	                         LL_DMA_CHANNEL_1,
+	                         LL_ADC_DMA_GetRegAddr(ADC1, LL_ADC_DMA_REG_REGULAR_DATA),
+	                         (uint32_t)&adc_values,
+	                         LL_DMA_DIRECTION_PERIPH_TO_MEMORY);
 
-	LL_ADC_DeInit(ADC1);
-	LL_ADC_REG_SetContinuousMode(ADC1, LL_ADC_REG_CONV_CONTINUOUS);
-	LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_0, LL_ADC_SAMPLINGTIME_239CYCLES_5);
-	LL_ADC_SetSequencersScanMode(ADC1, LL_ADC_SEQ_SCAN_ENABLE);
-	LL_ADC_INJ_SetTrigAuto(ADC1, LL_ADC_INJ_TRIG_FROM_GRP_REGULAR);
+	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_1, 2);
+	LL_DMA_EnableIT_TC(DMA1, LL_DMA_CHANNEL_1);
+	LL_DMA_EnableIT_TE(DMA1, LL_DMA_CHANNEL_1);
+	LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_1);
+
 	LL_ADC_Enable(ADC1);
-	adc_calibration_index = ((LL_ADC_DELAY_ENABLE_CALIB_ADC_CYCLES * 32) >> 1);
-	while(adc_calibration_index != 0){ adc_calibration_index--; }
+	uint32_t wait_loop_index = ((LL_ADC_DELAY_ENABLE_CALIB_ADC_CYCLES * 32) >> 1);
+	while(wait_loop_index != 0) wait_loop_index--;
 	LL_ADC_StartCalibration(ADC1);
-	LL_ADC_StartCalibration(ADC1);
-	while (LL_ADC_IsCalibrationOnGoing(ADC1) != 0) {}
-	LL_ADC_EnableIT_JEOS(ADC1);
-	LL_ADC_INJ_StartConversionSWStart(ADC1);
-
-	LL_ADC_DeInit(ADC2);
-	LL_ADC_REG_SetContinuousMode(ADC2, LL_ADC_REG_CONV_CONTINUOUS);
-	LL_ADC_SetChannelSamplingTime(ADC2, LL_ADC_CHANNEL_9, LL_ADC_SAMPLINGTIME_239CYCLES_5);
-	LL_ADC_SetSequencersScanMode(ADC2, LL_ADC_SEQ_SCAN_ENABLE);
-	LL_ADC_INJ_SetTrigAuto(ADC2, LL_ADC_INJ_TRIG_FROM_GRP_REGULAR);
-	LL_ADC_Enable(ADC2);
-	adc_calibration_index = ((LL_ADC_DELAY_ENABLE_CALIB_ADC_CYCLES * 32) >> 1);
-	while(adc_calibration_index != 0){ adc_calibration_index--; }
-	LL_ADC_StartCalibration(ADC2);
-	LL_ADC_StartCalibration(ADC2);
-	while (LL_ADC_IsCalibrationOnGoing(ADC2) != 0) {}
-	LL_ADC_EnableIT_JEOS(ADC2);
-	LL_ADC_INJ_StartConversionSWStart(ADC2);
+	while(LL_ADC_IsCalibrationOnGoing(ADC1) != 0);
 }
 
 uint16_t get_battery_voltage(){
+	LL_ADC_REG_StartConversionSWStart(ADC1);
 	uint16_t resulting_value = 0;
 	for(int i = 0; i < 30; i++){
-		batValue = (batValue * (avgFactor - 1) + battery_adc_value) / avgFactor;
+		batValue = (batValue * (avgFactor - 1) + adc_values[0]) / avgFactor;
 	}
 	if(is_first_meaning_b){
 		for(uint8_t i = 0; i < BANK_SIZE; i++) battery_bank[i] = batValue;
@@ -74,9 +77,10 @@ uint16_t get_battery_voltage(){
 }
 
 uint16_t get_high_voltage(){
+	LL_ADC_REG_StartConversionSWStart(ADC1);
 	uint16_t resulting_value = 0;
 	for(int i = 0; i < 30; i++){
-		hvValue = (hvValue * (avgFactor - 1) + high_voltage_adc_value) / avgFactor;
+		hvValue = (hvValue * (avgFactor - 1) + adc_values[1]) / avgFactor;
 	}
 	if(is_first_meaning_h){
 		for(uint8_t i = 0; i < BANK_SIZE; i++) hv_bank[i] = hvValue;

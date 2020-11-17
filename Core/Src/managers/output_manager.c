@@ -241,9 +241,10 @@ void draw_main(){
 				else LCD_write(GMEANING.mean, false);
 				LCD_SetCharSize(0);
 			}else{
-				if(GWORK.rad_back > 1000) LCD_write((float)GWORK.rad_back/1000, true);
+				/*if(GWORK.rad_back > 1000) LCD_write((float)GWORK.rad_back/1000, true);
 				else if(GWORK.rad_back > 1000000) LCD_write((float)GWORK.rad_back/1000000, true);
-				else LCD_write(GWORK.rad_back, false);
+				else LCD_write(GWORK.rad_back, false);*/
+				 LCD_write(GMEANING.current_high_voltage, false);
 				//4.01+3
 
 				LCD_SetCharSize(0);

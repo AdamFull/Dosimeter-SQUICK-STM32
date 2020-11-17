@@ -115,6 +115,7 @@ typedef struct {
 	bool is_monitor_enabled;
 	bool is_flash_initialized;
 	bool calculate_dose;
+	bool voltage_ok;
 	bool is_sleep_mode;
 
 	bool is_particle_mode;
