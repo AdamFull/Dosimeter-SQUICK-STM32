@@ -43,12 +43,14 @@ typedef struct {
 	uint32_t log_save_period;
 
 	unsigned session_number;
+	uint32_t sleep_time;
+	uint32_t time_to_sleep;
 
 } geiger_settings;
 
 typedef union {
 	geiger_settings GSETTING;
-	uint32_t data32[15];
+	uint32_t data32[17];
 } NVRAM;
 
 typedef struct {
@@ -58,7 +60,7 @@ typedef struct {
 	volatile uint16_t sum_old;
 
 	uint16_t real_geigertime;
-	uint16_t transformer_pwm;
+	uint8_t transformer_pwm;
 	uint16_t timer_time;
 	volatile uint16_t timer_remain;
 
@@ -101,7 +103,6 @@ typedef struct {
 	bool next_step;
 	bool no_alarm;
 	bool do_alarm;
-	bool is_sleeping;
 	bool is_editing_mode;
 	bool is_alarm;
 	bool is_muted;
@@ -117,6 +118,7 @@ typedef struct {
 	bool calculate_dose;
 	bool voltage_ok;
 	bool is_sleep_mode;
+	bool is_stop_mode;
 
 	bool is_particle_mode;
 	bool is_mean_mode;

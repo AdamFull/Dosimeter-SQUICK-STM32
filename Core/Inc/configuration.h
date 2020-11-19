@@ -61,7 +61,7 @@
 
 /***********************CONSTANTS***********************/
 //High voltage convertation coefficient
-#define HV_MULTIPLIER 6
+#define HV_MULTIPLIER 5.75f
 
 #define BACKLIGHT_MAX 255
 #define BACKLIGHT_NORMAL 200

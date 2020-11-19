@@ -89,10 +89,14 @@ void Error_Handler(void);
 #define SPI1_MOSI_GPIO_Port GPIOA
 #define SPI1_RST_Pin GPIO_PIN_0
 #define SPI1_RST_GPIO_Port GPIOB
-#define BSET_Pin GPIO_PIN_4
-#define BSET_GPIO_Port GPIOB
-#define BRSET_Pin GPIO_PIN_5
+#define BLINK_Pin GPIO_PIN_2
+#define BLINK_GPIO_Port GPIOB
+#define BRSET_Pin GPIO_PIN_4
 #define BRSET_GPIO_Port GPIOB
+#define BRSET_EXTI_IRQn EXTI4_IRQn
+#define BSET_Pin GPIO_PIN_5
+#define BSET_GPIO_Port GPIOB
+#define BSET_EXTI_IRQn EXTI9_5_IRQn
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

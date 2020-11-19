@@ -11,7 +11,7 @@
 #include "stm32f1xx_ll_adc.h"
 #include "stm32f1xx_ll_dma.h"
 
-#define BANK_SIZE 16
+#define BANK_SIZE 5
 
 uint16_t battery_bank[BANK_SIZE];
 uint16_t hv_bank[BANK_SIZE];
@@ -55,16 +55,16 @@ void adc_init(){
 	while(wait_loop_index != 0) wait_loop_index--;
 	LL_ADC_StartCalibration(ADC1);
 	while(LL_ADC_IsCalibrationOnGoing(ADC1) != 0);
+	LL_ADC_REG_StartConversionSWStart(ADC1);
 }
 
 uint16_t get_battery_voltage(){
-	LL_ADC_REG_StartConversionSWStart(ADC1);
 	uint16_t resulting_value = 0;
 	for(int i = 0; i < 30; i++){
 		batValue = (batValue * (avgFactor - 1) + adc_values[0]) / avgFactor;
 	}
 	if(is_first_meaning_b){
-		for(uint8_t i = 0; i < BANK_SIZE; i++) battery_bank[i] = batValue;
+		for(uint8_t i = 0; i < BANK_SIZE; i++) battery_bank[i] = 2300;
 		is_first_meaning_b = false;
 	}else{
 		battery_bank[0] = batValue;
@@ -77,13 +77,13 @@ uint16_t get_battery_voltage(){
 }
 
 uint16_t get_high_voltage(){
-	LL_ADC_REG_StartConversionSWStart(ADC1);
+	voltage_required();
 	uint16_t resulting_value = 0;
 	for(int i = 0; i < 30; i++){
 		hvValue = (hvValue * (avgFactor - 1) + adc_values[1]) / avgFactor;
 	}
 	if(is_first_meaning_h){
-		for(uint8_t i = 0; i < BANK_SIZE; i++) hv_bank[i] = hvValue;
+		for(uint8_t i = 0; i < BANK_SIZE; i++) hv_bank[i] = 2300;
 		is_first_meaning_h = false;
 	}else{
 		hv_bank[0] = hvValue;

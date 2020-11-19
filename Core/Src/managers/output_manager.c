@@ -31,9 +31,6 @@ extern uint8_t submode_cursor;
 extern uint8_t current_hour;
 extern uint8_t current_minutes;
 
-#define settings_puncts 4
-#define asettings_puncts 3
-
 unsigned long beep_timer = 0;
 LCD_CONFIG lcd_config_g;
 
@@ -97,11 +94,11 @@ void beep() { //индикация каждой частички звуком с
         if(GetTick() - beep_timer > 1){
             beep_timer = GetTick();
             if(GFLAGS.is_detected){
-            	pwm_tone(150);
-                //LL_GPIO_SetOutputPin(GPIOC, LL_GPIO_PIN_13);
+            	pwm_tone(50);
+            	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET);
             }else{
             	pwm_tone(0);
-                //LL_GPIO_ResetOutputPin(GPIOC, LL_GPIO_PIN_13);
+            	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET);
             }
             GFLAGS.is_detected = false;
         }
@@ -158,7 +155,7 @@ void uart_transmition_handler(){
 
 /*****************************************************************************************************************/
 void draw_update(){
-	if(GUI.update_required){
+	if(GUI.update_required && !GFLAGS.is_sleep_mode){
 		switch (GUI.page){
 			case 0: draw_logo(); GUI.page = 1; break;
 			case 1: draw_main(); break;
@@ -241,10 +238,10 @@ void draw_main(){
 				else LCD_write(GMEANING.mean, false);
 				LCD_SetCharSize(0);
 			}else{
-				/*if(GWORK.rad_back > 1000) LCD_write((float)GWORK.rad_back/1000, true);
+				if(GWORK.rad_back > 1000) LCD_write((float)GWORK.rad_back/1000, true);
 				else if(GWORK.rad_back > 1000000) LCD_write((float)GWORK.rad_back/1000000, true);
-				else LCD_write(GWORK.rad_back, false);*/
-				 LCD_write(GMEANING.current_high_voltage, false);
+				else LCD_write(GWORK.rad_back, false);
+				 //LCD_write(GMEANING.current_high_voltage, false);
 				//4.01+3
 
 				LCD_SetCharSize(0);
@@ -269,6 +266,7 @@ void draw_main(){
 		LCD_SetCharSize(0);
 		LCD_SetCursor(0, 33);
 		LCD_write(GWORK.rad_max, false);
+		//LCD_write(GWORK.voltage_req, false);
 		LCD_SetCursor(0, 40);
 		LCD_print(T_MAX);
 
@@ -280,6 +278,7 @@ void draw_main(){
 			if(GWORK.rad_dose > 1000) LCD_write((float)GWORK.rad_dose/1000, true);
 			else if(GWORK.rad_dose > 1000000) LCD_write((float)GWORK.rad_dose/1000000, true);
 			else LCD_write(GWORK.rad_dose, false);
+			//LCD_write(GWORK.transformer_pwm, false);
 
 			LCD_SetCursor(0, 58);
 			if(GWORK.rad_dose > 1000) LCD_print(T_MR);
@@ -373,7 +372,7 @@ void draw_graph(){
 /*****************************************************************************************************************/
 void draw_menu(){
 #ifndef DEBUG
-	const char* current_page_name[PAGES] = {S_MENU, S_MODE, S_SETTINGS, S_RESET, S_ACTIVITY, S_SURE, S_GCOUNTER, S_ADVANCED, S_ABOUT};
+	const char* current_page_name[PAGES] = {S_MENU, S_MODE, S_SETTINGS, S_RESET, S_ACTIVITY, S_PMAN, S_GCOUNTER, S_ADVANCED, S_ABOUT};
 	LCD_SetCharSize(0);
 	const char *page_name = current_page_name[GUI.menu_page];
 	#if defined(LANGUAGE_RU)
@@ -394,7 +393,7 @@ void draw_menu(){
 
 	switch (GUI.menu_page){
 		case 0:{
-			const char* current_page_puncts[] = {S_MODE, S_SETTINGS, S_RESET, S_POFF, S_ABOUT};
+			const char* current_page_puncts[] = {S_MODE, S_SETTINGS, S_RESET, S_PMAN, S_ABOUT};
 			draw_simple_menu_page(current_page_puncts, 5);
 		}break;
 
@@ -423,7 +422,7 @@ void draw_menu(){
 	        }break;
 	        //Меню сна
 	        case 5:{
-	        	const char* current_page_puncts[2] = {S_YES, S_NO};
+	        	const char* current_page_puncts[2] = {S_SLEEP, S_POFF};
 	        	draw_simple_menu_page(current_page_puncts, 2);
 	        }break;
 	        //Кастомные настройки счётчика
@@ -435,10 +434,10 @@ void draw_menu(){
 	        }break;
 	        //Advanced settings
 	        case 7:{
-	        	const char* current_page_puncts[] = {S_CONTRAST, S_DOSE_SAVE, S_ALARM, S_TRACKING_PERIOD};
-	        	const uint16_t current_page_values[] = {DevNVRAM.GSETTING.LCD_CONTRAST, DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL, DevNVRAM.GSETTING.ALARM_THRESHOLD, DevNVRAM.GSETTING.log_save_period};
-	        	const char current_page_postfixes[] = {' ', ' ', ' ', 's'};
-	        	draw_editable_menu_page(current_page_puncts, current_page_values, current_page_postfixes, 4);
+	        	const char* current_page_puncts[] = {S_CONTRAST, S_DOSE_SAVE, S_ALARM, S_TRACKING_PERIOD, S_SLEEPT, S_TTSLEEP};
+	        	const uint16_t current_page_values[] = {DevNVRAM.GSETTING.LCD_CONTRAST, DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL, DevNVRAM.GSETTING.ALARM_THRESHOLD, DevNVRAM.GSETTING.log_save_period, DevNVRAM.GSETTING.sleep_time, DevNVRAM.GSETTING.time_to_sleep};
+	        	const char current_page_postfixes[] = {' ', ' ', ' ', 's', 'm', 'm'};
+	        	draw_editable_menu_page(current_page_puncts, current_page_values, current_page_postfixes, 6);
 	        }break;
 	        case 8:{
 	        	uint8_t ext_mem = map((w25qxx.CapacityInKiloByte*1024) - DevNVRAM.GSETTING.w25qxx_address, 0, (w25qxx.CapacityInKiloByte*1024), 0, 100);

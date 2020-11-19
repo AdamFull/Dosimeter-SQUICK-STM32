@@ -13,7 +13,6 @@
 #include "libs/LCD_1202.h"
 #include "libs/w25qxx.h"
 #include "configuration.h"
-#include "stm32f1xx_ll_exti.h"
 
 NVRAM DevNVRAM;
 geiger_work GWORK;
@@ -36,11 +35,9 @@ extern bool screen_saver_state;
 RTC_TimeTypeDef current_time;
 RTC_DateTypeDef current_date;
 
-uint32_t awake_time;
-
 /*****************************************************************************************************************/
 void voltage_required(){
-	GWORK.voltage_req = DevNVRAM.GSETTING.GEIGER_VOLTAGE*HV_MULTIPLIER;
+	GWORK.voltage_req = (float)DevNVRAM.GSETTING.GEIGER_VOLTAGE*HV_MULTIPLIER;
 }
 
 /*****************************************************************************************************************/
@@ -52,7 +49,7 @@ void Initialize_variables(){
 	GWORK.time_sec = 0;
 	GWORK.sum_old = 0;
 	GWORK.real_geigertime = 0;
-	GWORK.transformer_pwm = 120;
+	GWORK.transformer_pwm = 186;
 	GWORK.timer_time = 0;
 	GWORK.timer_remain = 0;
 	GWORK.rad_dose_old = 0;
@@ -73,7 +70,7 @@ void Initialize_variables(){
 	GFLAGS.next_step = false;
 	GFLAGS.no_alarm = false;
 	GFLAGS.do_alarm = false;
-	GFLAGS.is_sleeping = false;
+	GFLAGS.is_stop_mode = false;
 	GFLAGS.is_editing_mode = false;
 	GFLAGS.is_alarm = false;
 	GFLAGS.is_muted = false;
@@ -259,7 +256,7 @@ uint32_t GetRomFree(){
 /*****************************************************************************************************************/
 bool Read_configuration(){
 	uint32_t readed_mem;
-	uint8_t array_len = 15;
+	uint8_t array_len = 17;
 
 	uint32_t l_Address, l_Index;
 
@@ -290,6 +287,8 @@ bool Read_configuration(){
 		DevNVRAM.GSETTING.sensor_area = 7;
 		DevNVRAM.GSETTING.log_save_period = 5;
 		DevNVRAM.GSETTING.session_number = 0;
+		DevNVRAM.GSETTING.sleep_time = 10;
+		DevNVRAM.GSETTING.time_to_sleep = 10;
 
 		Write_configuration();
 	}
@@ -298,7 +297,7 @@ bool Read_configuration(){
 /*****************************************************************************************************************/
 bool Write_configuration(){
 	uint32_t l_Address, l_Index, l_Error;
-	uint8_t array_len = 15;
+	uint8_t array_len = 17;
 
 	l_Address = 0x00;
 	l_Index = 0x00;
@@ -434,64 +433,6 @@ void geiger_counter_ticker(){
 		}
 	}*/
 }
-
-/*****************************************************************************************************************/
-void sleep(){
-	RTC_AlarmTypeDef sAlarm;
-	geiger_counter_ticker();
-	sAlarm.AlarmTime.Hours = current_hour+1;
-	sAlarm.AlarmTime.Minutes = current_minutes;
-	sAlarm.AlarmTime.Seconds = current_seconds+10;
-	sAlarm.Alarm = RTC_ALARM_A;
-	if(HAL_RTC_SetAlarm_IT(&hrtc, &sAlarm, RTC_FORMAT_BIN) == HAL_OK){
-		screen_saver_state = true;
-		display_power_off();
-		pwm_backlight(0);
-		GFLAGS.log_mutex = true;
-		awake_time = 30;
-
-		HAL_SuspendTick();
-		HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
-		HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
-		HAL_ResumeTick();
-		display_power_on();
-		GFLAGS.log_mutex = false;
-		screen_saver_state = false;
-	}
-}
-
-void sleep_ticker(){
-	if(--awake_time < 1){
-		sleep();
-	}
-}
-
-/*****************************************************************************************************************/
-void update_selected_counter(){
-	switch(DevNVRAM.GSETTING.ACTIVE_COUNTERS){
-		case 0:
-			LL_EXTI_DisableIT_0_31(LL_EXTI_LINE_1);
-			LL_EXTI_DisableIT_0_31(LL_EXTI_LINE_2);
-			LL_EXTI_EnableIT_0_31(LL_EXTI_LINE_3);
-			break;
-		case 1:
-			LL_EXTI_EnableIT_0_31(LL_EXTI_LINE_1);
-			LL_EXTI_DisableIT_0_31(LL_EXTI_LINE_2);
-			LL_EXTI_DisableIT_0_31(LL_EXTI_LINE_3);
-			break;
-		case 2:
-			LL_EXTI_DisableIT_0_31(LL_EXTI_LINE_1);
-			LL_EXTI_EnableIT_0_31(LL_EXTI_LINE_2);
-			LL_EXTI_DisableIT_0_31(LL_EXTI_LINE_3);
-			break;
-		case 3:
-			LL_EXTI_EnableIT_0_31(LL_EXTI_LINE_1);
-			LL_EXTI_EnableIT_0_31(LL_EXTI_LINE_2);
-			LL_EXTI_DisableIT_0_31(LL_EXTI_LINE_3);
-			break;
-	}
-}
-
 
 void interrupts_handler(){
 	if(GWORK.rad_buff[0]!=65535) GWORK.rad_buff[0]++;

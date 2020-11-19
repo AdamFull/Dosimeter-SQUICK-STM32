@@ -27,6 +27,7 @@
 #include "stdbool.h"
 #include "managers/data_manager.h"
 #include "managers/output_manager.h"
+#include "managers/power_manager.h"
 #include "util.h"
 #include "configuration.h"
 /* USER CODE END Includes */
@@ -71,7 +72,7 @@ extern USBD_CDC_ItfTypeDef USBD_Interface_fops_FS;
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+uint32_t graph_multiplier = 1;
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
@@ -272,6 +273,20 @@ void EXTI3_IRQHandler(void)
 }
 
 /**
+  * @brief This function handles EXTI line4 interrupt.
+  */
+void EXTI4_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI4_IRQn 0 */
+
+  /* USER CODE END EXTI4_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_4);
+  /* USER CODE BEGIN EXTI4_IRQn 1 */
+
+  /* USER CODE END EXTI4_IRQn 1 */
+}
+
+/**
   * @brief This function handles DMA1 channel1 global interrupt.
   */
 void DMA1_Channel1_IRQHandler(void)
@@ -279,6 +294,8 @@ void DMA1_Channel1_IRQHandler(void)
   /* USER CODE BEGIN DMA1_Channel1_IRQn 0 */
 	if(LL_DMA_IsActiveFlag_TC1(DMA1) == 1){
 		ADC_DMA_TransferComplete_Callback();
+		GMEANING.current_battery_voltage = get_battery_voltage();
+		GMEANING.current_high_voltage = get_high_voltage();
 		LL_DMA_ClearFlag_TC1(DMA1);
 	}
 	if(LL_DMA_IsActiveFlag_TE1(DMA1) == 1){
@@ -297,11 +314,25 @@ void DMA1_Channel1_IRQHandler(void)
 void USB_LP_CAN1_RX0_IRQHandler(void)
 {
   /* USER CODE BEGIN USB_LP_CAN1_RX0_IRQn 0 */
+	if(GFLAGS.is_sleep_mode) exit_sleep_mode();
   /* USER CODE END USB_LP_CAN1_RX0_IRQn 0 */
   HAL_PCD_IRQHandler(&hpcd_USB_FS);
   /* USER CODE BEGIN USB_LP_CAN1_RX0_IRQn 1 */
 
   /* USER CODE END USB_LP_CAN1_RX0_IRQn 1 */
+}
+
+/**
+  * @brief This function handles EXTI line[9:5] interrupts.
+  */
+void EXTI9_5_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI9_5_IRQn 0 */
+  /* USER CODE END EXTI9_5_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_5);
+  /* USER CODE BEGIN EXTI9_5_IRQn 1 */
+
+  /* USER CODE END EXTI9_5_IRQn 1 */
 }
 
 /**
@@ -317,41 +348,47 @@ void TIM1_UP_IRQHandler(void)
 
 if(!GFLAGS.log_mutex){
 	uint64_t tmp_buff=0;
+	uint16_t particles_per_second = 0;
 	geiger_counter_ticker();
-		if(GMODE.counter_mode == 1) activity_test_timer_ticker();
+	if(GFLAGS.is_sleep_mode) sleep_ticker();
+	if(GFLAGS.is_stop_mode) stop_ticker();
+	if(GMODE.counter_mode == 1) activity_test_timer_ticker();
 
-		for(uint16_t i=0; i<GWORK.real_geigertime; i++) tmp_buff+=GWORK.rad_buff[i]; //расчет фона мкР/ч
-		if(tmp_buff>MAX_PARTICLES) tmp_buff=MAX_PARTICLES; //переполнение
-		GWORK.rad_back_old = GWORK.rad_back;
+	for(uint16_t i=0; i<GWORK.real_geigertime; i++) tmp_buff+=GWORK.rad_buff[i]; //расчет фона мкР/ч
+	if(tmp_buff>MAX_PARTICLES) tmp_buff=MAX_PARTICLES; //переполнение
+	GWORK.rad_back_old = GWORK.rad_back;
 
-		if(GMODE.counter_mode == 0){
-			if(GFLAGS.is_particle_mode) GWORK.rad_back=tmp_buff/DevNVRAM.GSETTING.sensor_area;
-			else if(GFLAGS.is_particle_per_sec_mode) GWORK.rad_back=GWORK.rad_buff[0];
-			else GWORK.rad_back=tmp_buff;
-		}
+	if(GMODE.counter_mode == 0){
+		if(GFLAGS.is_particle_mode) GWORK.rad_back=tmp_buff/DevNVRAM.GSETTING.sensor_area;
+		else if(GFLAGS.is_particle_per_sec_mode) GWORK.rad_back=GWORK.rad_buff[0];
+		else GWORK.rad_back=tmp_buff;
+	}
 
-		if(!GFLAGS.is_particle_mode) GWORK.stat_buff[0] = GWORK.rad_back; //Записываю текущее значение мкр/ч для расчёта погрешности
+	particles_per_second = GWORK.rad_buff[0];
 
-		Calculate_std(); //- crashing
+	if(!GFLAGS.is_particle_mode) GWORK.stat_buff[0] = GWORK.rad_back; //Записываю текущее значение мкр/ч для расчёта погрешности
 
-		if(GWORK.rad_back>GWORK.rad_max) GWORK.rad_max=GWORK.rad_back;
+	Calculate_std(); //- crashing
 
-		for(uint16_t k=GWORK.real_geigertime-1; k>0; k--) GWORK.rad_buff[k]=GWORK.rad_buff[k-1]; //перезапись массива
+	if(GWORK.rad_back>GWORK.rad_max) GWORK.rad_max=GWORK.rad_back;
 
-		GWORK.rad_buff[0]=0; //сбрасываем счетчик импульсов
+	for(uint16_t k=GWORK.real_geigertime-1; k>0; k--) GWORK.rad_buff[k]=GWORK.rad_buff[k-1]; //перезапись массива
 
-	  for(uint16_t k=MEAN_MEAS_TIME-1; k>0; k--) GWORK.stat_buff[k]=GWORK.stat_buff[k-1];
-	  GWORK.stat_buff[0]=0;
+	GWORK.rad_buff[0]=0; //сбрасываем счетчик импульсов
 
-		GWORK.rad_dose=(DevNVRAM.GSETTING.rad_sum*GWORK.real_geigertime/3600); //расчитаем дозу
+	for(uint16_t k=MEAN_MEAS_TIME-1; k>0; k--) GWORK.stat_buff[k]=GWORK.stat_buff[k-1];
+	GWORK.stat_buff[0]=0;
 
-		GUI.mass[GUI.x_p]=map(GWORK.rad_back, 0, GWORK.rad_max < 40 ? 40 : GWORK.rad_max, 0, 19);
-		//for(uint8_t i=0;i<96;i++) GUI.mass[i]=GUI.mass[i] * sqrt(GWORK.rad_back/GWORK.rad_max);
-		if(GUI.x_p<95)GUI.x_p++;
-		if(GUI.x_p==95){
-			for(uint8_t i=0;i<LCD_X_SIZE-1;i++)GUI.mass[i]=GUI.mass[i+1];
-		}
-		if(GWORK.rad_max > 1) GWORK.rad_max--;		//Потихоньку сбрасываем максиму
+	GWORK.rad_dose=(DevNVRAM.GSETTING.rad_sum*GWORK.real_geigertime/3600); //расчитаем дозу
+
+	graph_multiplier = particles_per_second/10;
+	if(graph_multiplier == 0) graph_multiplier = 1;
+	GUI.mass[GUI.x_p]=map(particles_per_second, 0, 10*graph_multiplier, 0, 19);
+	if(GUI.x_p<95)GUI.x_p++;
+	if(GUI.x_p==95){
+		for(uint8_t i=0;i<LCD_X_SIZE-1;i++)GUI.mass[i]=GUI.mass[i+1];
+	}
+	if(GWORK.rad_max > 1) GWORK.rad_max--;		//Потихоньку сбрасываем максиму
 }
 
 

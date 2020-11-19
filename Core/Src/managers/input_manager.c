@@ -1,5 +1,6 @@
 #include "libs/GyverButton_stm32.h"
 #include "managers/data_manager.h"
+#include "managers/power_manager.h"
 #include "configuration.h"
 
 
@@ -7,7 +8,6 @@ GyverButton btn_set;
 GyverButton btn_reset;
 
 extern geiger_flags GFLAGS;
-extern geiger_meaning GMEANING;
 extern geiger_work GWORK;
 extern geiger_mode GMODE;
 extern NVRAM DevNVRAM;
@@ -52,6 +52,8 @@ void move_cursor(bool direction, bool editable, bool menu_mode){
 					case 1:{ if(GUI.editable < 500) GUI.editable+=5; } break;
 					case 2:{ if(GUI.editable < 500) GUI.editable+=10; } break;
 					case 3:{ if(GUI.editable < 300) GUI.editable+=5; } break;
+					case 4:{ if(GUI.editable < 60) GUI.editable+=1; } break;
+					case 5:{ if(GUI.editable < 60) GUI.editable+=1; } break;
 				}
 			}
 		}else{
@@ -74,6 +76,8 @@ void move_cursor(bool direction, bool editable, bool menu_mode){
 					case 1:{ if(GUI.editable > 5) GUI.editable-=5; } break;
 					case 2:{ if(GUI.editable > 30) GUI.editable-=10; } break;
 					case 3:{ if(GUI.editable > 5) GUI.editable-=5; } break;
+					case 4:{ if(GUI.editable > 1) GUI.editable-=1; } break;
+					case 5:{ if(GUI.editable > 1) GUI.editable-=1; } break;
 
 				}
 			}
@@ -90,7 +94,7 @@ void move_cursor(bool direction, bool editable, bool menu_mode){
 					case 4:{ if(GUI.cursor < 2) GUI.cursor++; } break;
 					case 5:{ if(GUI.cursor < 1) GUI.cursor++; } break;
 					case 6:{ if(GUI.cursor < 4) GUI.cursor++; } break;
-					case 7:{ if(GUI.cursor < 3) GUI.cursor++; } break;
+					case 7:{ if(GUI.cursor < 5) GUI.cursor++; } break;
 				}
 			}
 
@@ -132,6 +136,8 @@ void cursor_select(bool direction, bool editable, bool menu_mode){
 					case 1:{ Set_setting(&DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL, (uint32_t)GUI.editable); }break;
 					case 2:{ Set_setting(&DevNVRAM.GSETTING.ALARM_THRESHOLD, (uint32_t)GUI.editable); }break;
 					case 3:{ Set_setting(&DevNVRAM.GSETTING.log_save_period, (uint32_t)GUI.editable); }break;
+					case 4:{ Set_setting(&DevNVRAM.GSETTING.sleep_time, (uint32_t)GUI.editable); }break;
+					case 5:{ Set_setting(&DevNVRAM.GSETTING.time_to_sleep, (uint32_t)GUI.editable); }break;
 				}
 			}
 			GFLAGS.is_editing_mode = false;
@@ -190,11 +196,9 @@ void cursor_select(bool direction, bool editable, bool menu_mode){
 
 				}break;
 				case 5:{
-					switch (GUI.cursor){								//Вообще это диалог выбора, но пока что это не он
-						case 0:{
-							sleep();
-						}break;
-						case 1:{ GUI.menu_page = 0; }break;
+					switch (GUI.cursor){
+						case 0:{ enter_to_sleep_mode(); }break;
+						case 1:{ enter_to_stop_mode(); }break;
 					}
 					GUI.cursor = 0;
 					}break;
@@ -214,6 +218,8 @@ void cursor_select(bool direction, bool editable, bool menu_mode){
 							case 1:{ GUI.editable = DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL; }break;
 							case 2:{ GUI.editable = DevNVRAM.GSETTING.ALARM_THRESHOLD; }break;
 							case 3:{ GUI.editable = DevNVRAM.GSETTING.log_save_period; }break;
+							case 4:{ GUI.editable = DevNVRAM.GSETTING.sleep_time; }break;
+							case 5:{ GUI.editable = DevNVRAM.GSETTING.time_to_sleep; }break;
 						}
 						GFLAGS.is_editing_mode = true;
 					}
@@ -236,14 +242,18 @@ void button_action(){
 	bool menu_mode = GUI.page == 2;
 
 	if(isHold(&btn_reset) && isHold(&btn_set)){
-		battery_safe_update();
-		if(!menu_mode){
-			GUI.page = 2;
-			GUI.menu_page = 0;
-			GFLAGS.is_editing_mode = false;
+		screen_saver_update();
+		if(!GFLAGS.is_sleep_mode){
+			if(!menu_mode){
+				GUI.page = 2;
+				GUI.menu_page = 0;
+				GFLAGS.is_editing_mode = false;
+			}else{
+				GFLAGS.is_editing_mode = false;
+				GUI.page = 1;
+			}
 		}else{
-			GFLAGS.is_editing_mode = false;
-			GUI.page = 1;
+			exit_sleep_mode();
 		}
 		update_request();
 		resetStates(&btn_reset);
@@ -251,7 +261,7 @@ void button_action(){
 	}else if(isHold(&btn_set) && !menu_mode){
 		//if(!menu_mode && !isPress(btn_reset)) battery_request(true);
 	}else if(btn_reset_isHolded){											//Удержание кнопки ресет
-		battery_safe_update();
+		screen_saver_update();
 		if(!menu_mode && !isPress(&btn_set)) GFLAGS.no_alarm = !GFLAGS.no_alarm;
 		if(menu_mode && !GFLAGS.is_editing_mode){										//Если находимся в меню
 			GFLAGS.is_detected = true;
@@ -273,19 +283,19 @@ void button_action(){
 		}
 		update_request();
 	}else if(isClick(&btn_reset) && !btn_reset_isHolded){					//Клик кнопки ресет
-		if(!screen_saver_state){
+		if(!screen_saver_state && !GFLAGS.is_sleep_mode){
 			if(!menu_mode && !GFLAGS.do_alarm) GFLAGS.is_muted = !GFLAGS.is_muted;
 			if(!menu_mode && GFLAGS.do_alarm) GFLAGS.no_alarm = !GFLAGS.no_alarm;
 			move_cursor(false, GFLAGS.is_editing_mode, menu_mode);
 		}
-		battery_safe_update();
+		screen_saver_update();
 		update_request();
 	}else if(btn_set_isHolded){												//Удержание кнопки сет
-		battery_safe_update();
+		screen_saver_update();
 		cursor_select(true, GFLAGS.is_editing_mode, menu_mode);
 		update_request();
 	}else if(isClick(&btn_set) && !btn_set_isHolded){					//Клик кнопки сет
-		if(!screen_saver_state){
+		if(!screen_saver_state && !GFLAGS.is_sleep_mode){
 			if(!menu_mode && !GFLAGS.do_alarm){
 				if(++submode_cursor > 3) submode_cursor = 0;
 				GWORK.rad_max = 0;
@@ -311,7 +321,7 @@ void button_action(){
 
 			move_cursor(true, GFLAGS.is_editing_mode, menu_mode);
 		}
-		battery_safe_update();
+		screen_saver_update();
 		update_request();
 	}
 #endif

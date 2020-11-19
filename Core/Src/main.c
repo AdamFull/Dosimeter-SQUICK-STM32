@@ -31,6 +31,7 @@
 #include "managers/output_manager.h"
 #include "managers/data_manager.h"
 #include "managers/input_manager.h"
+#include "managers/power_manager.h"
 #include "libs/w25qxx.h"
 /* USER CODE END Includes */
 
@@ -58,8 +59,6 @@ RTC_HandleTypeDef hrtc;
 unsigned long highvolt_millis = 0;
 unsigned long batvolt_millis = 0;
 unsigned long gps_millis = 0;
-unsigned long screen_saver_millis = 0;
-bool screen_saver_state = false;
 
 extern DINITSTATUS device_status;
 
@@ -75,6 +74,11 @@ extern uint8_t current_minutes;
 extern uint8_t current_seconds;
 
 extern uint8_t submode_cursor;
+
+extern bool screen_saver_state;
+extern uint8_t sleepy_deepy;
+
+bool high_voltage_update;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -94,14 +98,6 @@ static void MX_RTC_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-void battery_safe_update(){
-	if(screen_saver_state){
-		screen_saver_state = false;
-		display_power_on();
-	}
-	screen_saver_millis = GetTick();
-}
-
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 	switch(GPIO_Pin){
 	case 1:
@@ -112,6 +108,25 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 		break;
 	case 3:
 		interrupts_handler();
+		break;
+	case GPIO_PIN_5:
+		if(GFLAGS.is_sleep_mode){
+			if(GFLAGS.is_muted) GFLAGS.is_muted = false;
+			GFLAGS.is_detected = true;
+			if(sleepy_deepy++ > 3){
+				sleepy_deepy = 0;
+				exit_sleep_mode();
+			}
+		}
+
+		if(GFLAGS.is_stop_mode){
+			if(GFLAGS.is_muted) GFLAGS.is_muted = false;
+			GFLAGS.is_detected = true;
+			if(sleepy_deepy++ > 3){
+				sleepy_deepy = 0;
+				exit_stop_mode();
+			}
+		}
 		break;
 	}
 }
@@ -179,6 +194,11 @@ int main(void)
 
   update_selected_counter();
 
+  if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5 ) != GPIO_PIN_SET){
+	  Reset_settings();
+	  LL_mDelay(100);
+  }
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -186,136 +206,131 @@ int main(void)
   while (1)
   {
 #ifndef DEBUG
-	//Timer for idle screen disable
+	beep();
+	if(!GFLAGS.is_stop_mode){
+		if((GMEANING.current_battery_voltage < BAT_ADC_MIN) && !GFLAGS.is_low_voltage) GFLAGS.is_low_voltage = true;		//Check, is battery low
 
-	if((GMEANING.current_battery_voltage < BAT_ADC_MIN) && !GFLAGS.is_low_voltage) GFLAGS.is_low_voltage = true;		//Check, is battery low
+		GFLAGS.is_charging = false;//(bool)(GPIOB->IDR & LL_GPIO_PIN_11);
+		//if(is_low_voltage) low_battery_kill();
 
-	GFLAGS.is_charging = false;//(bool)(GPIOB->IDR & LL_GPIO_PIN_11);
-	//if(is_low_voltage) low_battery_kill();
+		if(!GFLAGS.is_charging){
+			voltage_required();
 
-	if(!GFLAGS.is_charging){
-		uart_transmition_handler();
-
-		button_action();
-
-		if(GMODE.counter_mode != 1){
-			switch(submode_cursor){
-				case 0:
-					GFLAGS.is_mean_mode = false;
-					GFLAGS.is_particle_mode = false;
-					GFLAGS.is_particle_per_sec_mode = false;
-					GFLAGS.calculate_dose = true;;
-					break;
-				case 1:
-					GFLAGS.is_mean_mode = false;
-					GFLAGS.is_particle_mode = true;
-					GFLAGS.is_particle_per_sec_mode = false;
-					GFLAGS.calculate_dose = false;
-					GFLAGS.no_alarm = true;
-					break;
-				case 2:
-					GFLAGS.is_mean_mode = true;
-					GFLAGS.is_particle_mode = false;
-					GFLAGS.is_particle_per_sec_mode = false;
-					GFLAGS.calculate_dose = true;
-					break;
-				case 3:
-					GFLAGS.is_mean_mode = false;
-					GFLAGS.is_particle_mode = false;
-					GFLAGS.is_particle_per_sec_mode = true;
-					GFLAGS.calculate_dose = false;
-					GFLAGS.no_alarm = true;
-					break;
+			if(GetTick() - batvolt_millis > 100){
+				batvolt_millis = GetTick();
+				LL_ADC_REG_StartConversionSWStart(ADC1);
+				high_voltage_update = true;
 			}
-		}
-
-		/******************************************************************************************************************************/
-		//Timer for update voltage values
-		voltage_required();
-
-		if(GetTick() - batvolt_millis > 60000){
-			batvolt_millis = GetTick();
-			GMEANING.current_battery_voltage = get_battery_voltage();
-		}
-
-		if(GetTick() - highvolt_millis > 10){
-			highvolt_millis = GetTick();
-			GMEANING.current_high_voltage = get_high_voltage();
 
 			//High voltage regulation
 			if(DevNVRAM.GSETTING.ACTIVE_COUNTERS != 0 && !GFLAGS.log_mutex){
 				if(GFLAGS.stop_timer && GMODE.counter_mode == 1) TIM2->CCR1 = 0;
 				else{
-					if(GMEANING.current_high_voltage < GWORK.voltage_req) { if(GWORK.transformer_pwm < 200)GWORK.transformer_pwm++; }
-					else { if(GWORK.transformer_pwm > 0) GWORK.transformer_pwm--; }
+					if(high_voltage_update){
+						if(GMEANING.current_high_voltage < GWORK.voltage_req) { if(GWORK.transformer_pwm < 200)GWORK.transformer_pwm++; }
+						else { if(GWORK.transformer_pwm > 0) GWORK.transformer_pwm--; }
+						/*float test_val = 0;
+						test_val = (float)GMEANING.current_high_voltage/(float)GWORK.voltage_req;
+						GWORK.transformer_pwm = GWORK.transformer_pwm/test_val;*/
+						high_voltage_update = false;
+					}
 					TIM2->CCR1 = GWORK.transformer_pwm;
 				}
 			}else{
 				TIM2->CCR1 = 0;
 			}
-		}
 
-		/******************************************************************************************************************************/
-		if(!screen_saver_state){
-			if(GetTick() - screen_saver_millis > SCREEN_SAVER_TIME){
-				screen_saver_millis = GetTick();
-				screen_saver_state = true;
-				display_power_off();
-				pwm_backlight(0);
+			if(!GFLAGS.is_sleep_mode){
+				uart_transmition_handler();
+				button_action();
+				screen_saver_ticker();
 
-			}
-		}
+				/******************************************************************************************************************************/
+				//Timer for logger
+				if(GetTick() - gps_millis > DevNVRAM.GSETTING.log_save_period * 1000){
+					gps_millis = GetTick();
 
-		/******************************************************************************************************************************/
-		//Timer for logger
-		if(GetTick() - gps_millis > DevNVRAM.GSETTING.log_save_period * 1000){
-			gps_millis = GetTick();
+					if(GFLAGS.is_tracking_enabled){
+						uint8_t buffer[64];
+						memset(buffer, 0, sizeof(buffer));
+						sprintf(buffer, "%u,%u,%u,%u,%u,%u\n", DevNVRAM.GSETTING.session_number, GWORK.rad_back, GWORK.rad_dose, current_hour, current_minutes, current_seconds);
+						if(!Write_string_w25qxx(buffer)){
+							//Not enought memory, can't write
+							//Do something
+						}
+					}
+				}
 
-			if(GFLAGS.is_tracking_enabled){
-				uint8_t buffer[64];
-				memset(buffer, 0, sizeof(buffer));
-				sprintf(buffer, "%u,%u,%u,%u,%u,%u\n", DevNVRAM.GSETTING.session_number, GWORK.rad_back, GWORK.rad_dose, current_hour, current_minutes, current_seconds);
-				if(!Write_string_w25qxx(buffer)){
-					//Not enought memory, can't write
-					//Do something
+				//Check is current radiation more then alarm threshold
+				if((GWORK.rad_back > DevNVRAM.GSETTING.ALARM_THRESHOLD) && !GFLAGS.no_alarm && (GMODE.counter_mode == 0)) { GFLAGS.do_alarm = true; }
+				else { if(GMODE.counter_mode == 0) GFLAGS.do_alarm = false; }
+
+				if(!GFLAGS.do_alarm && !screen_saver_state){ if((bool)DevNVRAM.GSETTING.LCD_BACKLIGHT){ pwm_backlight(BACKLIGHT_INTENSITY); } else {pwm_backlight(0);} }//Disable or enable backlight after alarm
+
+				//Alarm algorithm
+				if(!GFLAGS.no_alarm) {
+					if(GFLAGS.do_alarm){
+						if(GetTick()-GWORK.alarm_timer > 300){
+							GWORK.alarm_timer = GetTick();
+							if(!GFLAGS.is_muted) pwm_tone(GFLAGS.is_alarm ? 100 : 200);
+							pwm_backlight(GFLAGS.is_alarm ? 255 : 0);
+							GFLAGS.is_alarm = !GFLAGS.is_alarm;
+							screen_saver_update();
+						}
+					}
+				}
+
+				if(!screen_saver_state) draw_update();
+
+				//Save dose part
+				if(GMODE.counter_mode==0){
+					if(GWORK.rad_dose - GWORK.rad_dose_old > DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL){
+						GWORK.rad_dose_old = GWORK.rad_dose;
+						GWORK.rad_max = GWORK.rad_back;
+						Write_configuration();
+					}
 				}
 			}
-		}
 
-		//Check is current radiation more then alarm threshold
-		if((GWORK.rad_back > DevNVRAM.GSETTING.ALARM_THRESHOLD) && !GFLAGS.no_alarm && (GMODE.counter_mode == 0)) { GFLAGS.do_alarm = true; }
-		else { if(GMODE.counter_mode == 0) GFLAGS.do_alarm = false; }
-
-		if(!GFLAGS.do_alarm && !screen_saver_state){ if((bool)DevNVRAM.GSETTING.LCD_BACKLIGHT){ pwm_backlight(BACKLIGHT_INTENSITY); } else {pwm_backlight(0);} }//Disable or enable backlight after alarm
-
-		//Alarm algorithm
-		if(!GFLAGS.no_alarm) {
-			if(GFLAGS.do_alarm){
-				if(GetTick()-GWORK.alarm_timer > 300){
-					GWORK.alarm_timer = GetTick();
-					if(!GFLAGS.is_muted) pwm_tone(GFLAGS.is_alarm ? 100 : 200);
-					pwm_backlight(GFLAGS.is_alarm ? 255 : 0);
-					GFLAGS.is_alarm = !GFLAGS.is_alarm;
-					battery_safe_update();
+			if(GMODE.counter_mode != 1){
+				switch(submode_cursor){
+					case 0:
+						GFLAGS.is_mean_mode = false;
+						GFLAGS.is_particle_mode = false;
+						GFLAGS.is_particle_per_sec_mode = false;
+						GFLAGS.calculate_dose = true;;
+						break;
+					case 1:
+						GFLAGS.is_mean_mode = false;
+						GFLAGS.is_particle_mode = true;
+						GFLAGS.is_particle_per_sec_mode = false;
+						GFLAGS.calculate_dose = false;
+						GFLAGS.no_alarm = true;
+						break;
+					case 2:
+						GFLAGS.is_mean_mode = true;
+						GFLAGS.is_particle_mode = false;
+						GFLAGS.is_particle_per_sec_mode = false;
+						GFLAGS.calculate_dose = true;
+						break;
+					case 3:
+						GFLAGS.is_mean_mode = false;
+						GFLAGS.is_particle_mode = false;
+						GFLAGS.is_particle_per_sec_mode = true;
+						GFLAGS.calculate_dose = false;
+						GFLAGS.no_alarm = true;
+						break;
 				}
 			}
-		}
 
-		if(!screen_saver_state) draw_update();
-		beep();
 
-		//Save dose part
-		if(GMODE.counter_mode==0){
-			if(GWORK.rad_dose - GWORK.rad_dose_old > DevNVRAM.GSETTING.SAVE_DOSE_INTERVAL){
-				GWORK.rad_dose_old = GWORK.rad_dose;
-				GWORK.rad_max = GWORK.rad_back;
-				Write_configuration();
-			}
+			/******************************************************************************************************************************/
+			//Timer for update voltage values
+		}else{
+			//pwm_transformer(0);
+			pwm_tone(0);
+			pwm_backlight(0);
 		}
-	}else{
-		//pwm_transformer(0);
-		pwm_tone(0);
-		pwm_backlight(0);
 	}
 #endif
   }
@@ -570,7 +585,7 @@ static void MX_SPI2_Init(void)
   LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* SPI2 interrupt Init */
-  NVIC_SetPriority(SPI2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),3, 0));
+  NVIC_SetPriority(SPI2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),1, 0));
   NVIC_EnableIRQ(SPI2_IRQn);
 
   /* USER CODE BEGIN SPI2_Init 1 */
@@ -612,7 +627,7 @@ static void MX_TIM1_Init(void)
   LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_TIM1);
 
   /* TIM1 interrupt Init */
-  NVIC_SetPriority(TIM1_UP_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),4, 0));
+  NVIC_SetPriority(TIM1_UP_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),2, 0));
   NVIC_EnableIRQ(TIM1_UP_IRQn);
 
   /* USER CODE BEGIN TIM1_Init 1 */
@@ -655,13 +670,13 @@ static void MX_TIM2_Init(void)
   LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_TIM2);
 
   /* TIM2 interrupt Init */
-  NVIC_SetPriority(TIM2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),5, 0));
+  NVIC_SetPriority(TIM2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),3, 0));
   NVIC_EnableIRQ(TIM2_IRQn);
 
   /* USER CODE BEGIN TIM2_Init 1 */
 
   /* USER CODE END TIM2_Init 1 */
-  TIM_InitStruct.Prescaler = 7;
+  TIM_InitStruct.Prescaler = 11;
   TIM_InitStruct.CounterMode = LL_TIM_COUNTERMODE_UP;
   TIM_InitStruct.Autoreload = 255;
   TIM_InitStruct.ClockDivision = LL_TIM_CLOCKDIVISION_DIV1;
@@ -803,7 +818,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, SPI1_CS_Pin|SPI1_SCK_Pin|SPI1_MOSI_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, SPI1_RST_Pin|GPIO_PIN_12|GPIO_PIN_7, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, SPI1_RST_Pin|BLINK_Pin|GPIO_PIN_12|GPIO_PIN_7, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : GINT1_Pin GINT2_Pin GINT3_Pin */
   GPIO_InitStruct.Pin = GINT1_Pin|GINT2_Pin|GINT3_Pin;
@@ -825,9 +840,22 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PB11 BSET_Pin BRSET_Pin */
-  GPIO_InitStruct.Pin = GPIO_PIN_11|BSET_Pin|BRSET_Pin;
+  /*Configure GPIO pin : BLINK_Pin */
+  GPIO_InitStruct.Pin = BLINK_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(BLINK_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PB11 */
+  GPIO_InitStruct.Pin = GPIO_PIN_11;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : BRSET_Pin BSET_Pin */
+  GPIO_InitStruct.Pin = BRSET_Pin|BSET_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
@@ -842,11 +870,17 @@ static void MX_GPIO_Init(void)
   HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 
-  HAL_NVIC_SetPriority(EXTI2_IRQn, 1, 0);
+  HAL_NVIC_SetPriority(EXTI2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 
-  HAL_NVIC_SetPriority(EXTI3_IRQn, 2, 0);
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
 }
 
